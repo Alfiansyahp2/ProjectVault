@@ -81,8 +81,9 @@ export async function fetchProjectsFromAppwrite(): Promise<Project[] | null> {
       date: doc.date || '',
       createdAt: doc.$createdAt,
     }));
-  } catch (err) {
-    console.warn('Appwrite fetch projects error:', err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.info(`[Appwrite] Fallback: Koleksi '${aw.config.projectsCollectionId}' belum tersedia di Cloud (${errorMsg}). Menggunakan Local Storage.`);
     return null;
   }
 }
@@ -167,8 +168,9 @@ export async function fetchApplicationsFromAppwrite(): Promise<JobApplication[] 
       matched_project_ids: doc.matched_project_ids || [],
       createdAt: doc.$createdAt,
     }));
-  } catch (err) {
-    console.warn('Appwrite fetch applications error:', err);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.info(`[Appwrite] Fallback: Koleksi '${aw.config.applicationsCollectionId}' belum tersedia di Cloud (${errorMsg}). Menggunakan Local Storage.`);
     return null;
   }
 }
