@@ -54,6 +54,9 @@ export default function ApplicationsPage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isBatchParsing, setIsBatchParsing] = useState(false);
+  const [unparsedCount, setUnparsedCount] = useState<number>(0);
+  const [totalPdfFiles, setTotalPdfFiles] = useState<number>(91);
   const [syncNotification, setSyncNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -65,13 +68,49 @@ export default function ApplicationsPage() {
   const [editingApp, setEditingApp] = useState<JobApplication | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<{ title: string; text: string } | null>(null);
 
+  const checkSyncStatus = async () => {
+    try {
+      const res = await fetch('/api/applications/sync');
+      const data = await res.json();
+      if (typeof data.unparsedCount === 'number') {
+        setUnparsedCount(data.unparsedCount);
+      }
+      if (typeof data.totalPdfFiles === 'number') {
+        setTotalPdfFiles(data.totalPdfFiles);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch sync status', e);
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const apps = await getApplications();
-      setApplications(apps);
+      const res = await fetch('/api/applications/sync');
+      const syncData = await res.json();
+      
+      if (typeof syncData.unparsedCount === 'number') {
+        setUnparsedCount(syncData.unparsedCount);
+      }
+      if (typeof syncData.totalPdfFiles === 'number') {
+        setTotalPdfFiles(syncData.totalPdfFiles);
+      }
+
+      if (syncData.applications && Array.isArray(syncData.applications) && syncData.applications.length > 0) {
+        setApplications(syncData.applications);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('tracker_applications_data', JSON.stringify(syncData.applications));
+        }
+      } else {
+        const apps = await getApplications();
+        setApplications(apps);
+      }
     } catch (e) {
       console.error('Error loading applications:', e);
+      try {
+        const apps = await getApplications();
+        setApplications(apps);
+      } catch {}
     } finally {
       setIsLoading(false);
     }
@@ -79,21 +118,79 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     loadData();
+    checkSyncStatus();
   }, []);
+
+  const handleBatchParse = async (batchSize: number | 'all' = 5) => {
+    setIsBatchParsing(true);
+    setSyncNotification(null);
+    try {
+      const res = await fetch('/api/applications/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchSize })
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.applications && Array.isArray(data.applications)) {
+          setApplications(data.applications);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tracker_applications_data', JSON.stringify(data.applications));
+          }
+        } else {
+          await loadData();
+        }
+
+        const remaining = typeof data.unparsedCount === 'number' ? data.unparsedCount : 0;
+        setUnparsedCount(remaining);
+
+        const newItems = (data.newlyParsed || []).map((p: any) => `${p.company_name} (${p.job_title})`);
+        const detailsText = newItems.length > 0
+          ? `Berkas baru dimasukkan: ${newItems.join(', ')}. Tersisa ${remaining} berkas di folder.`
+          : `Tersisa ${remaining} berkas di folder.`;
+
+        setSyncNotification({
+          type: 'success',
+          message: data.message || `Berhasil mem-parse ${data.batchProcessed || 5} berkas baru!`,
+          details: detailsText
+        });
+      } else {
+        setSyncNotification({
+          type: 'error',
+          message: data.error || 'Gagal mem-parse berkas resume'
+        });
+      }
+    } catch (err: any) {
+      setSyncNotification({
+        type: 'error',
+        message: err.message || 'Terjadi kesalahan jaringan saat mem-parse berkas resume'
+      });
+    } finally {
+      setIsBatchParsing(false);
+    }
+  };
 
   const handleSyncResumes = async () => {
     setIsSyncing(true);
     setSyncNotification(null);
     try {
-      const res = await fetch('/api/applications/sync', { method: 'POST' });
+      const res = await fetch('/api/applications/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ batchSize: 'all' })
+      });
       const data = await res.json();
       if (data.success) {
         if (data.applications && Array.isArray(data.applications)) {
           setApplications(data.applications);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tracker_applications_data', JSON.stringify(data.applications));
+          }
         } else {
           await loadData();
         }
 
+        setUnparsedCount(0);
         const total = data.stats?.totalApplications || 0;
         const unique = data.stats?.uniqueCompanies || 0;
         const cloudSynced = data.stats?.appwriteSynced || 0;
@@ -216,11 +313,17 @@ export default function ApplicationsPage() {
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               <span><strong>{applications.filter(a => a.status === 'applied').length}</strong> Terkirim Aktif</span>
             </div>
+            {unparsedCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 animate-pulse">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span><strong>{unparsedCount}</strong> Belum di-Parse</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* CTA Buttons */}
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <button
             onClick={() => loadData()}
             className="p-2.5 rounded-xl text-xs font-semibold border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 transition"
@@ -229,15 +332,40 @@ export default function ApplicationsPage() {
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
           </button>
 
-          {/* Scan & Sync from data/resume button */}
+          {/* PARSE 5 BERKAS BARU BUTTON (User Requested Batch Flow) */}
+          <button
+            onClick={() => handleBatchParse(5)}
+            disabled={isBatchParsing || isSyncing || unparsedCount === 0}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all shadow-sm ${
+              unparsedCount > 0
+                ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 shadow-amber-500/10 hover:scale-[1.02] active:scale-95'
+                : 'border-zinc-700/50 bg-zinc-800/40 text-zinc-500 cursor-not-allowed'
+            }`}
+            title={
+              unparsedCount > 0
+                ? `Parse 5 berkas PDF berikutnya dari folder resume (${unparsedCount} berkas tersisa)`
+                : 'Semua 91 berkas resume telah selesai di-parse!'
+            }
+          >
+            <Sparkles className={`w-4 h-4 text-amber-400 ${isBatchParsing ? 'animate-spin' : ''}`} />
+            <span>
+              {isBatchParsing
+                ? 'Mem-parse 5 Berkas...'
+                : unparsedCount > 0
+                ? `Parse 5 Berkas Baru (${unparsedCount} tersisa)`
+                : '✓ Semua 91 Berkas Ter-parse'}
+            </span>
+          </button>
+
+          {/* Scan & Sync from data/resume button (All remaining) */}
           <button
             onClick={handleSyncResumes}
-            disabled={isSyncing}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 shadow-sm shadow-indigo-500/10 transition disabled:opacity-50"
-            title="Pindai data/resume dan data/resume/New folder (91 PDF) dan sinkronkan ke database"
+            disabled={isSyncing || isBatchParsing}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 shadow-sm shadow-indigo-500/10 transition disabled:opacity-50"
+            title="Pindai dan sinkronkan seluruh 91 PDF sekaligus ke database"
           >
-            <Sparkles className={`w-4 h-4 text-indigo-400 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Memindai 91 PDF...' : 'Scan & Sync Surat Lamaran'}</span>
+            <Layers className={`w-4 h-4 text-indigo-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Memindai Semua...' : 'Sync Semua (91 PDF)'}</span>
           </button>
 
           {/* View Mode Toggle */}
@@ -276,6 +404,43 @@ export default function ApplicationsPage() {
           </button>
         </div>
       </div>
+
+      {/* Unparsed Batch Reminder Banner */}
+      {unparsedCount > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-200 animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-amber-100">
+                {unparsedCount} Berkas Surat Lamaran Belum Dimasukkan
+              </p>
+              <p className="text-[11px] text-amber-300/80 mt-0.5">
+                Total {totalPdfFiles} berkas PDF ditemukan di <code className="text-amber-200">data/resume</code>. Anda dapat memasukkannya secara bertahap 5 per 5 agar mudah dipantau.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => handleBatchParse(5)}
+              disabled={isBatchParsing || isSyncing}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition shadow-sm disabled:opacity-50 active:scale-95"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isBatchParsing ? 'animate-spin' : ''}`} />
+              <span>{isBatchParsing ? 'Memproses 5...' : `Parse 5 Berkas Baru`}</span>
+            </button>
+            <button
+              onClick={() => handleBatchParse('all')}
+              disabled={isBatchParsing || isSyncing}
+              className="px-3 py-2 rounded-xl text-xs font-semibold bg-white/[0.08] hover:bg-white/[0.12] text-amber-200 border border-amber-500/30 transition disabled:opacity-50"
+              title="Parse seluruh berkas yang tersisa sekaligus"
+            >
+              Parse Semua ({unparsedCount})
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Sync Notification Banner */}
       {syncNotification && (
