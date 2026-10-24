@@ -20,6 +20,10 @@ export interface JobApplication {
   job_title: string;
   status: ApplicationStatus;
   applied_date: string;
+  source_portal?: string;
+  summary?: string;
+  key_skills?: string[];
+  file_path?: string;
   job_link?: string;
   salary_range?: string;
   notes?: string;
