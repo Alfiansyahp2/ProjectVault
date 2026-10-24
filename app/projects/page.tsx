@@ -45,22 +45,22 @@ function parseAchievements(text?: string): string[] {
 // Category color badges with tailored dark-mode aesthetics
 function getCategoryBadge(category?: string) {
   const cat = (category || '').toLowerCase();
-  if (cat.includes('machine learning') || cat.includes('ai') || cat.includes('nlp')) {
-    return 'bg-purple-500/10 text-purple-300 border-purple-500/25';
+  if (cat.includes('sevima')) {
+    return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
   }
-  if (cat.includes('workflow') || cat.includes('distributed')) {
-    return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25';
+  if (cat.includes('produk') || cat.includes('product')) {
+    return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
   }
-  if (cat.includes('data engineering') || cat.includes('analytics') || cat.includes('bi')) {
-    return 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+  if (cat.includes('freelance')) {
+    return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
   }
-  if (cat.includes('full stack') || cat.includes('edtech')) {
-    return 'bg-sky-500/10 text-sky-300 border-sky-500/25';
+  if (cat.includes('research') || cat.includes('thesis') || cat.includes('riset') || cat.includes('skripsi')) {
+    return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
   }
-  if (cat.includes('web portal') || cat.includes('search')) {
-    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
+  if (cat.includes('test')) {
+    return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
   }
-  return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/25';
+  return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25';
 }
 
 export default function ProjectsPage() {
@@ -159,7 +159,11 @@ export default function ProjectsPage() {
   }, [projects]);
 
   const categories = useMemo(() => {
-    return ['ALL', ...Object.keys(categoryStats)];
+    const PREDEFINED_ORDER = ['Projek di SEVIMA', 'My Produk', 'Freelance', 'Research & Thesis', 'Test'];
+    const keys = Object.keys(categoryStats);
+    const ordered = PREDEFINED_ORDER.filter(c => keys.includes(c));
+    const others = keys.filter(c => !PREDEFINED_ORDER.includes(c));
+    return ['ALL', ...ordered, ...others];
   }, [categoryStats]);
 
   // Metrics summary

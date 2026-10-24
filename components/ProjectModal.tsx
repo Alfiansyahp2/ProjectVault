@@ -153,13 +153,12 @@ export default function ProjectModal({ isOpen, onClose, onSave, initialData }: P
                 onChange={e => setCategory(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-white/10 bg-[#070b14] text-white focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 outline-none transition"
               >
-                <option value="Web Application" className="bg-[#0b1220]">Web Application</option>
-                <option value="Backend & API" className="bg-[#0b1220]">Backend & API</option>
-                <option value="Machine Learning / AI" className="bg-[#0b1220]">Machine Learning / AI</option>
-                <option value="Data Pipeline & Analytics" className="bg-[#0b1220]">Data Pipeline & Analytics</option>
-                <option value="Mobile App" className="bg-[#0b1220]">Mobile App</option>
-                <option value="Open Source & Tooling" className="bg-[#0b1220]">Open Source & Tooling</option>
-                <option value="Desain UI/UX" className="bg-[#0b1220]">Desain UI/UX</option>
+                <option value="Projek di SEVIMA" className="bg-[#0b1220]">Projek di SEVIMA</option>
+                <option value="My Produk" className="bg-[#0b1220]">My Produk</option>
+                <option value="Freelance" className="bg-[#0b1220]">Freelance</option>
+                <option value="Research & Thesis" className="bg-[#0b1220]">Research & Thesis</option>
+                <option value="Test" className="bg-[#0b1220]">Test</option>
+                <option value="Lainnya" className="bg-[#0b1220]">Lainnya</option>
               </select>
             </div>
             <div>
