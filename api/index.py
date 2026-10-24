@@ -1,8 +1,15 @@
+import os
 import re
+import json
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+try:
+    from api.nlp_engine import parse_pdf_document, scan_all_resumes
+except ImportError:
+    from nlp_engine import parse_pdf_document, scan_all_resumes
 
 app = FastAPI(
     title="Job & Project Tracker Analysis API",
@@ -368,3 +375,61 @@ def generate_master_prompt(payload: MasterPromptRequest):
     )
     
     return {"master_prompt": prompt}
+
+# --- LOCAL AI & DOCUMENT INTELLIGENCE ENDPOINTS (ZERO API KEY) ---
+
+class ParseSinglePdfRequest(BaseModel):
+    file_path: str
+
+class ExportResumesRequest(BaseModel):
+    base_dir: Optional[str] = "data"
+    output_path: Optional[str] = "data/parsed_applications.json"
+
+@app.get("/api/py/resumes/scan")
+def scan_resumes(base_dir: str = "data"):
+    """
+    Scan all resume & cover letter PDFs using the local Python Document Intelligence
+    and NLP engine. No external API key required.
+    """
+    applications = scan_all_resumes(base_dir)
+    return {
+        "status": "success",
+        "engine": "Local Python Document Intelligence & NLP (Zero Cloud API)",
+        "total_documents": len(applications),
+        "data": applications
+    }
+
+@app.post("/api/py/resumes/export")
+def export_resumes(payload: ExportResumesRequest):
+    """
+    Parse all resume PDFs and export to a structured JSON file in data/parsed_applications.json
+    for offline database persistence or UI sync.
+    """
+    applications = scan_all_resumes(payload.base_dir or "data")
+    out_path = payload.output_path or "data/parsed_applications.json"
+    
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(applications, f, indent=2, ensure_ascii=False)
+        
+    return {
+        "status": "success",
+        "message": f"Successfully parsed and exported {len(applications)} applications",
+        "output_file": out_path,
+        "count": len(applications)
+    }
+
+@app.post("/api/py/resumes/parse-file")
+def parse_single_pdf(payload: ParseSinglePdfRequest):
+    """Parse a single PDF file on-demand using the local NLP pipeline."""
+    if not os.path.exists(payload.file_path):
+        raise HTTPException(status_code=404, detail=f"File tidak ditemukan: {payload.file_path}")
+        
+    try:
+        result = parse_pdf_document(payload.file_path)
+        return {
+            "status": "success",
+            "result": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mem-parse PDF: {str(e)}")
