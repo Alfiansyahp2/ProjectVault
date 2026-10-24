@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ProjectVault — Pelacak Lamaran Kerja & Bank Proyek
 
-## Getting Started
+Aplikasi sederhana dan praktis untuk mencatat semua riwayat proyek portofolio Anda, memantau status lamaran kerja, dan membuat surat lamaran (*cover letter*) otomatis yang cocok dengan syarat lowongan pekerjaan.
 
-First, run the development server:
+Aplikasi ini dibuat agar **AI (seperti ChatGPT, Claude, atau Gemini) tidak pernah lupa lagi** dengan riwayat proyek yang pernah Anda kerjakan.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## 🎯 Fitur Utama Secara Garis Besar
+
+1. **Bank Proyek:** Tempat menyimpan seluruh portofolio, peran, dan teknologi yang pernah Anda gunakan.
+2. **Pelacak Lamaran Kerja (Kanban):** Papan visual untuk memantau status lamaran (*Rencana, Terkirim, Wawancara, Diterima, Ditolak*) dan arsip surat lamaran yang pernah Anda kirim.
+3. **Peringatan Follow-Up:** Pengingat otomatis jika ada lamaran yang sudah dikirim lebih dari 7 hari tanpa kabar.
+4. **Pembuat Surat Lamaran Otomatis (Mesin Python):** Cukup tempel deskripsi lowongan kerja, aplikasi akan mencocokkan proyek Anda yang paling pas dan membuatkan draf surat lamaran siap kirim.
+5. **Tombol "Salin untuk AI" (Anti-Lupa):** Sekali klik untuk menyalin seluruh rangkuman portofolio Anda agar siap ditempel di obrolan AI apa pun.
+
+---
+
+## 🚀 Panduan Cepat Menjalankan (Untuk Pemula)
+
+Tidak perlu konfigurasi rumit, cukup ikuti 3 langkah mudah ini:
+
+### Langkah 1: Buka Terminal
+
+Buka **PowerShell** atau **Command Prompt**, lalu masuk ke folder aplikasi:
+
+```powershell
+cd "C:\Users\MyBook Hype AMD\OneDrive\Documents\kerja\_code\tracker_job"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Langkah 2: Jalankan Aplikasi
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Ketik perintah ini lalu tekan **Enter**:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```powershell
+npm run dev
+```
 
-## Learn More
+### Langkah 3: Buka di Browser
 
-To learn more about Next.js, take a look at the following resources:
+Buka Google Chrome atau browser favorit Anda, lalu ketik alamat ini:
+👉 **[http://localhost:3000](http://localhost:3000)**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+*Aplikasi sudah langsung bisa digunakan! Semua data yang Anda masukkan otomatis tersimpan di laptop Anda.*
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## 💡 Cara Penggunaan Sehari-Hari
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Catat Proyek:** Masuk ke menu **Bank Proyek** &rarr; klik **Tambah Proyek Baru** &rarr; isi nama proyek dan teknologi yang digunakan.
+2. **Kirim Lamaran Baru:** Saat Anda melamar pekerjaan, buka menu **Pelacak Lamaran** &rarr; klik **Catat Lamaran Baru** agar riwayatnya tersimpan rapi.
+3. **Analisis Lowongan Kerja:** Masuk ke menu **AI & Analisis** &rarr; tempel syarat lowongan dari LinkedIn/JobStreet &rarr; klik **Jalankan Analisis**. Sistem akan memilihkan proyek terbaik Anda dan membuatkan surat lamarannya!
+4. **Chat dengan AI Tanpa Takut Lupa:** Klik tombol **"Salin untuk AI"** di Dashboard, lalu tempel (*paste*) di awal obrolan ChatGPT atau Gemini Anda.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---

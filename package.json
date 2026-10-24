@@ -2,22 +2,30 @@
   "name": "tracker_job",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.23.4"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently -n \"next,fastapi\" -c \"blue,green\" \"next dev\" \"npm run fastapi-dev\"",
+    "next-dev": "next dev",
+    "fastapi-dev": "python -m uvicorn api.index:app --reload --port 8000",
+    "fastapi-dev:venv": ".venv\\Scripts\\python.exe -m uvicorn api.index:app --reload --port 8000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint ."
   },
   "dependencies": {
+    "appwrite": "^17.0.0",
+    "lucide-react": "^1.16.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
