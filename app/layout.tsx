@@ -24,7 +24,7 @@ export default function RootLayout({
       <body suppressHydrationWarning className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
         <div className="ambient-glow" aria-hidden="true" />
         <Navbar />
-        <main className="flex-1 relative z-10">
+        <main className="flex-1">
           {children}
         </main>
         <footer className="relative z-10 border-t border-slate-800/80 bg-[#090d16]/90 backdrop-blur-xl py-6 text-center text-xs text-slate-400">

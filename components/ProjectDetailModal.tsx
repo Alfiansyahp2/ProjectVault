@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Project } from '@/lib/types';
 import { 
   X, 
@@ -35,9 +36,14 @@ export default function ProjectDetailModal({
   onEdit,
   onDelete,
 }: ProjectDetailModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [copiedContext, setCopiedContext] = useState(false);
 
-  if (!isOpen || !project) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !project || !mounted) return null;
 
   // Parse achievements into clean bullet points
   const bulletPoints = (project.achievements || '')
@@ -65,17 +71,19 @@ export default function ProjectDetailModal({
     setTimeout(() => setCopiedContext(false), 2000);
   };
 
-  return (
+  if (!isOpen || !project || !mounted) return null;
+
+  return createPortal(
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-[#0b1220] border border-white/[0.12] rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl shadow-indigo-500/10 my-8 flex flex-col max-h-[90vh]"
+        className="relative bg-[#0b1220] border border-white/[0.12] rounded-3xl w-full max-w-3xl overflow-hidden shadow-2xl shadow-indigo-500/10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-150"
         onClick={e => e.stopPropagation()}
       >
         {/* Top Bar Actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-slate-900/60 sticky top-0 z-10 backdrop-blur-md">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-slate-900/70 backdrop-blur-md">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
               {project.category || 'General'}
@@ -248,6 +256,7 @@ export default function ProjectDetailModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

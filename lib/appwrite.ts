@@ -66,7 +66,8 @@ export async function fetchProjectsFromAppwrite(): Promise<Project[] | null> {
   try {
     const res = await aw.databases.listDocuments(
       aw.config.databaseId,
-      aw.config.projectsCollectionId
+      aw.config.projectsCollectionId,
+      [Query.limit(100)]
     );
     return res.documents.map(doc => ({
       id: doc.$id,
@@ -155,11 +156,41 @@ export async function fetchApplicationsFromAppwrite(): Promise<JobApplication[] 
   if (!aw) return null;
 
   try {
-    const res = await aw.databases.listDocuments(
-      aw.config.databaseId,
-      aw.config.applicationsCollectionId
-    );
-    return res.documents.map(doc => ({
+    let allDocuments: any[] = [];
+    let offset = 0;
+    const limit = 100;
+
+    while (true) {
+      const res = await aw.databases.listDocuments(
+        aw.config.databaseId,
+        aw.config.applicationsCollectionId,
+        [Query.limit(limit), Query.offset(offset)]
+      );
+
+      allDocuments = allDocuments.concat(res.documents);
+      if (res.documents.length < limit || allDocuments.length >= res.total) {
+        break;
+      }
+      offset += res.documents.length;
+    }
+
+    // Deduplicate by file_path or normalized company + job title
+    const seen = new Set<string>();
+    const uniqueDocs: any[] = [];
+
+    for (const doc of allDocuments) {
+      const fp = (doc.file_path || '').trim().toLowerCase();
+      const comp = (doc.company_name || '').trim().toLowerCase();
+      const jt = (doc.job_title || '').trim().toLowerCase();
+      const key = fp || `${comp}::${jt}`;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueDocs.push(doc);
+      }
+    }
+
+    return uniqueDocs.map(doc => ({
       id: doc.$id,
       company_name: doc.company_name || '',
       job_title: doc.job_title || '',

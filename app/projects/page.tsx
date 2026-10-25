@@ -45,22 +45,22 @@ function parseAchievements(text?: string): string[] {
 // Category color badges with tailored dark-mode aesthetics
 function getCategoryBadge(category?: string) {
   const cat = (category || '').toLowerCase();
-  if (cat.includes('machine learning') || cat.includes('ai') || cat.includes('nlp')) {
-    return 'bg-purple-500/10 text-purple-300 border-purple-500/25';
+  if (cat.includes('sevima')) {
+    return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
   }
-  if (cat.includes('workflow') || cat.includes('distributed')) {
-    return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25';
+  if (cat.includes('produk') || cat.includes('product')) {
+    return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
   }
-  if (cat.includes('data engineering') || cat.includes('analytics') || cat.includes('bi')) {
-    return 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+  if (cat.includes('freelance')) {
+    return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
   }
-  if (cat.includes('full stack') || cat.includes('edtech')) {
-    return 'bg-sky-500/10 text-sky-300 border-sky-500/25';
+  if (cat.includes('research') || cat.includes('thesis') || cat.includes('riset') || cat.includes('skripsi')) {
+    return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
   }
-  if (cat.includes('web portal') || cat.includes('search')) {
-    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25';
+  if (cat.includes('test')) {
+    return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
   }
-  return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/25';
+  return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25';
 }
 
 export default function ProjectsPage() {
@@ -78,6 +78,13 @@ export default function ProjectsPage() {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
 
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotification, setSyncNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    details?: string;
+  } | null>(null);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -89,6 +96,48 @@ export default function ProjectsPage() {
       console.error('Error loading projects:', e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSyncFromMd = async () => {
+    setIsSyncing(true);
+    setSyncNotification(null);
+    try {
+      const res = await fetch('/api/projects/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        if (data.projects && Array.isArray(data.projects)) {
+          setProjects(data.projects);
+        } else {
+          await loadData();
+        }
+
+        const newCount = data.stats?.newGenerated || 0;
+        const updatedCount = data.stats?.updated || 0;
+        const total = data.stats?.total || 0;
+
+        let detailMsg = `Total: ${total} proyek aktif terindeks.`;
+        if (newCount > 0) detailMsg += ` (+${newCount} proyek baru dibuat)`;
+        if (updatedCount > 0) detailMsg += ` (${updatedCount} proyek diperbarui)`;
+
+        setSyncNotification({
+          type: 'success',
+          message: data.message || 'Sinkronisasi project.md berhasil!',
+          details: detailMsg
+        });
+      } else {
+        setSyncNotification({
+          type: 'error',
+          message: data.error || 'Gagal menyinkronkan project.md'
+        });
+      }
+    } catch (err: any) {
+      setSyncNotification({
+        type: 'error',
+        message: err.message || 'Terjadi kesalahan jaringan saat sync'
+      });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -159,7 +208,11 @@ export default function ProjectsPage() {
   }, [projects]);
 
   const categories = useMemo(() => {
-    return ['ALL', ...Object.keys(categoryStats)];
+    const PREDEFINED_ORDER = ['Projek di SEVIMA', 'My Produk', 'Freelance', 'Research & Thesis', 'Test'];
+    const keys = Object.keys(categoryStats);
+    const ordered = PREDEFINED_ORDER.filter(c => keys.includes(c));
+    const others = keys.filter(c => !PREDEFINED_ORDER.includes(c));
+    return ['ALL', ...ordered, ...others];
   }, [categoryStats]);
 
   // Metrics summary
@@ -226,6 +279,16 @@ export default function ProjectsPage() {
           </button>
 
           <button
+            onClick={handleSyncFromMd}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 shadow-sm shadow-emerald-500/10 transition disabled:opacity-50"
+            title="Scan data/project/project.md, generate proyek baru dari link/folder, dan sinkronkan ke database"
+          >
+            <Sparkles className={`w-4 h-4 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Menyinkronkan...' : 'Generate dari project.md'}</span>
+          </button>
+
+          <button
             onClick={() => setIsAiModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-white/[0.1] bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 transition"
           >
@@ -245,6 +308,35 @@ export default function ProjectsPage() {
           </button>
         </div>
       </div>
+
+      {/* Sync Notification Banner */}
+      {syncNotification && (
+        <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition-all animate-in fade-in slide-in-from-top-2 ${
+          syncNotification.type === 'success'
+            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+            : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              syncNotification.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+            }`}>
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-semibold">{syncNotification.message}</p>
+              {syncNotification.details && (
+                <p className="text-[11px] text-emerald-300/80 mt-0.5">{syncNotification.details}</p>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => setSyncNotification(null)}
+            className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search, Filter Tabs & View Switcher */}
       <div className="space-y-4">
