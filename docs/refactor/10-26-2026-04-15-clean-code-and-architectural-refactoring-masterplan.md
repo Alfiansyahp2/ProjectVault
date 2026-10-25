@@ -318,15 +318,15 @@ graph TD
     F --> G["Fase 7: Verifikasi Kualitas Penuh (Unit Test, Regression Test, & npm run build)"]
 ```
 
-| Fase | Fokus Pekerjaan | Berkas Sumber | Target Hasil |
-| :---: | :--- | :--- | :--- |
-| **Fase 1** | Ekstraksi Data Seed & Pemecahan Storage | `lib/storage.ts` (1.975 baris) | Data mock ke `data/seeds/`, storage modular ke `lib/storage/` (< 80 baris/file) |
-| **Fase 2** | Dekomposisi Halaman Aplikasi & Kanban Board | `app/applications/page.tsx` (1.334 baris) | Terpecah ke `features/applications/` dengan hooks & sub-komponen |
-| **Fase 3** | Dekomposisi Modal Form & PDF Uploader | `components/ApplicationModal.tsx` (688 baris) | Terbagi menjadi `ApplicationForm` & `ApplicationParserPanel` |
-| **Fase 4** | Dekomposisi Halaman Proyek & Scanner Engine | `app/projects/page.tsx` & `api/projects/sync` | Terpecah ke `features/projects/` & `server/services/projects/` |
-| **Fase 5** | Modularisasi Dasbor Utama & Analyzer | `app/page.tsx` & `app/analyzer/page.tsx` | Widget modular di `features/dashboard/` & `features/analyzer/` |
-| **Fase 6** | Konsolidasi Engine Python NLP (DRY) | `api/batch_parser.py`, `nlp_engine.py` | Eliminasi duplikasi kode fungsi ekstraksi ke `api/services/` |
-| **Fase 7** | Pengujian Mutu Menyeluruh | Seluruh aplikasi | Validasi fungsional Kanban DnD, Appwrite, dan `npm run build` (Exit 0) |
+| Fase | Fokus Pekerjaan | Berkas Sumber | Target Hasil | Status |
+| :---: | :--- | :--- | :--- | :---: |
+| **Fase 1** | Ekstraksi Data Seed & Pemecahan Storage | `lib/storage.ts` (1.975 baris) | Data mock ke `data/seeds/`, storage modular ke `lib/storage/` (< 80 baris/file) | **SELESAI (100%)** |
+| **Fase 2** | Dekomposisi Halaman Aplikasi & Kanban Board | `app/applications/page.tsx` (1.334 baris) | Terpecah ke `features/applications/` dengan hooks & sub-komponen | **SELESAI (100%)** |
+| **Fase 3** | Dekomposisi Modal Form & PDF Uploader | `components/ApplicationModal.tsx` (688 baris) | Terbagi menjadi `ApplicationForm` & `ApplicationParserPanel` | **SELESAI (100%)** |
+| **Fase 4** | Dekomposisi Halaman Proyek & Scanner Engine | `app/projects/page.tsx` & `api/projects/sync` | Terpecah ke `features/projects/` & `server/services/projects/` | **SELESAI (100%)** |
+| **Fase 5** | Modularisasi Dasbor Utama, Analyzer, & Settings | `app/page.tsx`, `analyzer`, `settings` | Widget modular di `features/dashboard/`, `analyzer/`, `settings/` | **SELESAI (100%)** |
+| **Fase 6** | Konsolidasi Engine Python NLP (DRY) | `api/batch_parser.py`, `parse_single.py` | Eliminasi duplikasi kode fungsi ekstraksi ke `api/services/nlp_engine` | **SELESAI (100%)** |
+| **Fase 7** | Pengujian Mutu Menyeluruh | Seluruh aplikasi | Validasi fungsional Kanban DnD, CLI Python, dan `npm run build` (Exit 0) | **SELESAI (100%)** |
 
 ---
 
