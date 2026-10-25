@@ -20,19 +20,24 @@ Aplikasi ini dibuat agar **AI (seperti ChatGPT, Claude, atau Gemini) tidak perna
 
 Tidak perlu konfigurasi rumit, cukup ikuti 3 langkah mudah ini:
 
-### Langkah 1: Buka Terminal
+### Langkah 1: Buka Terminal di Folder Proyek
 
-Buka **PowerShell** atau **Command Prompt**, lalu masuk ke folder aplikasi:
+Buka terminal (**PowerShell**, **Command Prompt**, atau **Terminal macOS/Linux**) di dalam folder proyek ini:
 
-```powershell
-cd "C:\Users\MyBook Hype AMD\OneDrive\Documents\kerja\_code\tracker_job"
+```bash
+# Unduh repositori (jika baru pertama kali):
+git clone https://github.com/Alfiansyahp2/ProjectVault.git
+cd ProjectVault
+
+# Pasang dependensi:
+npm install
 ```
 
 ### Langkah 2: Jalankan Aplikasi
 
 Ketik perintah ini lalu tekan **Enter**:
 
-```powershell
+```bash
 npm run dev
 ```
 
