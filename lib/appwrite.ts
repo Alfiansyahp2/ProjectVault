@@ -66,7 +66,8 @@ export async function fetchProjectsFromAppwrite(): Promise<Project[] | null> {
   try {
     const res = await aw.databases.listDocuments(
       aw.config.databaseId,
-      aw.config.projectsCollectionId
+      aw.config.projectsCollectionId,
+      [Query.limit(100)]
     );
     return res.documents.map(doc => ({
       id: doc.$id,
@@ -92,17 +93,22 @@ export async function saveProjectToAppwrite(project: Project): Promise<string | 
   const aw = getAppwriteClient();
   if (!aw) return null;
 
-  const data = {
+  const data: Record<string, any> = {
     title: project.title,
-    role: project.role,
-    category: project.category,
-    technologies: project.technologies,
+    role: project.role || 'Developer',
+    category: project.category || 'General',
+    technologies: project.technologies || [],
     description: project.description,
     achievements: project.achievements || '',
-    repo_url: project.repo_url || '',
-    demo_url: project.demo_url || '',
     date: project.date || '',
   };
+
+  if (project.repo_url && (project.repo_url.startsWith('http://') || project.repo_url.startsWith('https://'))) {
+    data.repo_url = project.repo_url.trim();
+  }
+  if (project.demo_url && (project.demo_url.startsWith('http://') || project.demo_url.startsWith('https://'))) {
+    data.demo_url = project.demo_url.trim();
+  }
 
   try {
     if (project.id && !project.id.startsWith('local_')) {
@@ -150,16 +156,50 @@ export async function fetchApplicationsFromAppwrite(): Promise<JobApplication[] 
   if (!aw) return null;
 
   try {
-    const res = await aw.databases.listDocuments(
-      aw.config.databaseId,
-      aw.config.applicationsCollectionId
-    );
-    return res.documents.map(doc => ({
+    let allDocuments: any[] = [];
+    let offset = 0;
+    const limit = 100;
+
+    while (true) {
+      const res = await aw.databases.listDocuments(
+        aw.config.databaseId,
+        aw.config.applicationsCollectionId,
+        [Query.limit(limit), Query.offset(offset)]
+      );
+
+      allDocuments = allDocuments.concat(res.documents);
+      if (res.documents.length < limit || allDocuments.length >= res.total) {
+        break;
+      }
+      offset += res.documents.length;
+    }
+
+    // Deduplicate by file_path or normalized company + job title
+    const seen = new Set<string>();
+    const uniqueDocs: any[] = [];
+
+    for (const doc of allDocuments) {
+      const fp = (doc.file_path || '').trim().toLowerCase();
+      const comp = (doc.company_name || '').trim().toLowerCase();
+      const jt = (doc.job_title || '').trim().toLowerCase();
+      const key = fp || `${comp}::${jt}`;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueDocs.push(doc);
+      }
+    }
+
+    return uniqueDocs.map(doc => ({
       id: doc.$id,
       company_name: doc.company_name || '',
       job_title: doc.job_title || '',
       status: doc.status || 'applied',
       applied_date: doc.applied_date || new Date().toISOString().split('T')[0],
+      source_portal: doc.source_portal || '',
+      summary: doc.summary || '',
+      key_skills: Array.isArray(doc.key_skills) ? doc.key_skills : [],
+      file_path: doc.file_path || '',
       job_link: doc.job_link || '',
       salary_range: doc.salary_range || '',
       notes: doc.notes || '',
@@ -179,17 +219,24 @@ export async function saveApplicationToAppwrite(appItem: JobApplication): Promis
   const aw = getAppwriteClient();
   if (!aw) return null;
 
-  const data = {
+  const data: Record<string, any> = {
     company_name: appItem.company_name,
     job_title: appItem.job_title,
     status: appItem.status,
     applied_date: appItem.applied_date,
-    job_link: appItem.job_link || '',
+    source_portal: appItem.source_portal || '',
+    summary: appItem.summary || '',
+    key_skills: appItem.key_skills || [],
+    file_path: appItem.file_path || '',
     salary_range: appItem.salary_range || '',
     notes: appItem.notes || '',
     job_description: appItem.job_description || '',
     cover_letter: appItem.cover_letter || '',
   };
+
+  if (appItem.job_link && (appItem.job_link.startsWith('http://') || appItem.job_link.startsWith('https://'))) {
+    data.job_link = appItem.job_link.trim();
+  }
 
   try {
     if (appItem.id && !appItem.id.startsWith('local_')) {

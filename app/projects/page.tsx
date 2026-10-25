@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FolderGit2, 
   Plus, 
@@ -13,30 +13,132 @@ import {
   Globe, 
   Sparkles,
   BrainCircuit,
-  Filter
+  Filter,
+  ArrowRight,
+  ExternalLink,
+  LayoutGrid,
+  List,
+  Calendar,
+  Briefcase,
+  Layers,
+  X,
+  RefreshCw,
+  CheckCircle2,
+  TrendingUp,
+  Award
 } from 'lucide-react';
 import { Project, UserProfile } from '@/lib/types';
 import { getProjects, saveProject, deleteProject, getUserProfile } from '@/lib/storage';
 import ProjectModal from '@/components/ProjectModal';
 import AiPromptModal from '@/components/AiPromptModal';
+import ProjectDetailModal from '@/components/ProjectDetailModal';
+
+// Helper to parse bullet points cleanly from text
+function parseAchievements(text?: string): string[] {
+  if (!text) return [];
+  return text
+    .split(/\n|•|\*/)
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+}
+
+// Category color badges with tailored dark-mode aesthetics
+function getCategoryBadge(category?: string) {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('sevima')) {
+    return 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+  }
+  if (cat.includes('produk') || cat.includes('product')) {
+    return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+  }
+  if (cat.includes('freelance')) {
+    return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  }
+  if (cat.includes('research') || cat.includes('thesis') || cat.includes('riset') || cat.includes('skripsi')) {
+    return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+  }
+  if (cat.includes('test')) {
+    return 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+  }
+  return 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25';
+}
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [profile, setProfile] = useState<UserProfile>({ name: '', headline: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Modals
+  // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [detailProject, setDetailProject] = useState<Project | null>(null);
+
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncNotification, setSyncNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+    details?: string;
+  } | null>(null);
 
   const loadData = async () => {
-    const p = await getProjects();
-    const prof = getUserProfile();
-    setProjects(p);
-    setProfile(prof);
+    setIsLoading(true);
+    try {
+      const p = await getProjects();
+      const prof = getUserProfile();
+      setProjects(p);
+      setProfile(prof);
+    } catch (e) {
+      console.error('Error loading projects:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSyncFromMd = async () => {
+    setIsSyncing(true);
+    setSyncNotification(null);
+    try {
+      const res = await fetch('/api/projects/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        if (data.projects && Array.isArray(data.projects)) {
+          setProjects(data.projects);
+        } else {
+          await loadData();
+        }
+
+        const newCount = data.stats?.newGenerated || 0;
+        const updatedCount = data.stats?.updated || 0;
+        const total = data.stats?.total || 0;
+
+        let detailMsg = `Total: ${total} proyek aktif terindeks.`;
+        if (newCount > 0) detailMsg += ` (+${newCount} proyek baru dibuat)`;
+        if (updatedCount > 0) detailMsg += ` (${updatedCount} proyek diperbarui)`;
+
+        setSyncNotification({
+          type: 'success',
+          message: data.message || 'Sinkronisasi project.md berhasil!',
+          details: detailMsg
+        });
+      } else {
+        setSyncNotification({
+          type: 'error',
+          message: data.error || 'Gagal menyinkronkan project.md'
+        });
+      }
+    } catch (err: any) {
+      setSyncNotification({
+        type: 'error',
+        message: err.message || 'Terjadi kesalahan jaringan saat sync'
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   useEffect(() => {
@@ -45,229 +147,650 @@ export default function ProjectsPage() {
 
   const handleSave = async (project: Project) => {
     await saveProject(project);
-    loadData();
+    await loadData();
+    if (detailProject && detailProject.id === project.id) {
+      setDetailProject(project);
+    }
   };
 
   const handleDelete = async (id: string, title: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus proyek "${title}" dari bank data?`)) {
       await deleteProject(id);
+      if (detailProject && detailProject.id === id) {
+        setDetailProject(null);
+      }
       loadData();
     }
   };
 
-  const copySingleProject = (p: Project) => {
-    const text = `### Proyek: ${p.title} (${p.role})\nKategori: ${p.category}\nTeknologi: ${p.technologies.join(', ')}\nDeskripsi: ${p.description}${p.achievements ? `\nHasil Nyata: ${p.achievements}` : ''}${p.repo_url ? `\nRepo: ${p.repo_url}` : ''}${p.demo_url ? `\nDemo: ${p.demo_url}` : ''}`;
+  const copySingleProject = (p: Project, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const bullets = parseAchievements(p.achievements);
+    let text = `### Proyek: ${p.title} (${p.role})\nKategori: ${p.category}\nTeknologi: ${p.technologies.join(', ')}\nDeskripsi: ${p.description}`;
+    if (bullets.length > 0) {
+      text += `\nCapaian & Dampak Terukur:\n` + bullets.map(b => `- ${b}`).join('\n');
+    }
+    if (p.repo_url) text += `\nRepo: ${p.repo_url}`;
+    if (p.demo_url) text += `\nDemo: ${p.demo_url}`;
+
     navigator.clipboard.writeText(text);
     setCopiedId(p.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
   // Filter projects
-  const filteredProjects = projects.filter(p => {
-    const matchesSearch = 
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.technologies.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredProjects = useMemo(() => {
+    return projects.filter(p => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || (
+        p.title.toLowerCase().includes(q) ||
+        p.role.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.achievements && p.achievements.toLowerCase().includes(q)) ||
+        p.technologies.some(t => t.toLowerCase().includes(q))
+      );
 
-    const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
+      const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      return matchesSearch && matchesCategory;
+    });
+  }, [projects, searchQuery, selectedCategory]);
 
-  const categories = ['ALL', ...Array.from(new Set(projects.map(p => p.category).filter(Boolean)))];
+  // Aggregate category counts
+  const categoryStats = useMemo(() => {
+    const counts: Record<string, number> = {};
+    projects.forEach(p => {
+      const cat = p.category || 'General';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [projects]);
+
+  const categories = useMemo(() => {
+    const PREDEFINED_ORDER = ['Projek di SEVIMA', 'My Produk', 'Freelance', 'Research & Thesis', 'Test'];
+    const keys = Object.keys(categoryStats);
+    const ordered = PREDEFINED_ORDER.filter(c => keys.includes(c));
+    const others = keys.filter(c => !PREDEFINED_ORDER.includes(c));
+    return ['ALL', ...ordered, ...others];
+  }, [categoryStats]);
+
+  // Metrics summary
+  const totalTech = useMemo(() => {
+    const all = new Set<string>();
+    projects.forEach(p => p.technologies.forEach(t => all.add(t.toLowerCase().trim())));
+    return all.size;
+  }, [projects]);
+
+  const totalAchievements = useMemo(() => {
+    return projects.reduce((acc, p) => acc + parseAchievements(p.achievements).length, 0);
+  }, [projects]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-7">
+      
+      {/* Top Header Banner */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-white/[0.08] pb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/10 shrink-0">
               <FolderGit2 className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
-                Bank Proyek & Portofolio
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-500">
-                Pusat data semua proyek yang pernah Anda buat. Gunakan ini sebagai referensi bukti kerja dan memori untuk AI.
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Bank Proyek &amp; Portofolio
+                </h1>
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                  Single Source of Truth
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Katalog rekam jejak arsitektur sistem, peran kepemimpinan, tech stack, dan capaian terukur siap pakai untuk interview.
               </p>
+            </div>
+          </div>
+
+          {/* Quick Metrics Bar */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap mt-4 text-xs font-medium text-slate-300">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span><strong>{projects.length}</strong> Proyek Unggulan</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <Layers className="w-3.5 h-3.5 text-sky-400" />
+              <span><strong>{totalTech}+</strong> Tech Stacks</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              <span><strong>{totalAchievements}</strong> Capaian Terukur</span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* CTA Buttons */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <button
+            onClick={() => loadData()}
+            className="p-2.5 rounded-xl text-xs font-semibold border border-white/[0.1] bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 transition"
+            title="Muat ulang data dari Cloud / Database"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
+          </button>
+
+          <button
+            onClick={handleSyncFromMd}
+            disabled={isSyncing}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 shadow-sm shadow-emerald-500/10 transition disabled:opacity-50"
+            title="Scan data/project/project.md, generate proyek baru dari link/folder, dan sinkronkan ke database"
+          >
+            <Sparkles className={`w-4 h-4 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Menyinkronkan...' : 'Generate dari project.md'}</span>
+          </button>
+
           <button
             onClick={() => setIsAiModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-white/[0.1] bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 transition"
           >
-            <BrainCircuit className="w-4 h-4 text-blue-600" />
-            Salin untuk AI
+            <BrainCircuit className="w-4 h-4 text-indigo-400" />
+            <span>Salin Konteks AI</span>
           </button>
+          
           <button
             onClick={() => {
               setEditingProject(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20 transition active:scale-95"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-105 active:scale-95"
           >
             <Plus className="w-4 h-4" />
-            Tambah Proyek Baru
+            <span>Tambah Proyek</span>
           </button>
         </div>
       </div>
 
-      {/* Search & Category Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Cari berdasarkan nama proyek, teknologi (React, Python, dsb), atau peran..."
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-zinc-400" />
-          <select
-            value={selectedCategory}
-            onChange={e => setSelectedCategory(e.target.value)}
-            className="px-3 py-2.5 text-sm rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            {categories.map((c, i) => (
-              <option key={i} value={c}>
-                {c === 'ALL' ? 'Semua Kategori' : c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Projects Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredProjects.map((proj) => (
-          <div
-            key={proj.id}
-            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 hover:border-blue-500 dark:hover:border-blue-600 hover:shadow-lg transition-all flex flex-col justify-between"
-          >
+      {/* Sync Notification Banner */}
+      {syncNotification && (
+        <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition-all animate-in fade-in slide-in-from-top-2 ${
+          syncNotification.type === 'success'
+            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-200'
+            : 'bg-rose-950/40 border-rose-500/30 text-rose-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+              syncNotification.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+            }`}>
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
             <div>
-              {/* Header card */}
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                    {proj.category || 'General'}
-                  </span>
-                  <h3 className="text-base font-bold text-zinc-900 dark:text-white mt-1.5 line-clamp-1">
-                    {proj.title}
-                  </h3>
-                  <p className="text-xs font-medium text-zinc-500 mt-0.5">
-                    {proj.role} {proj.date && `â€¢ ${proj.date}`}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => copySingleProject(proj)}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    title="Salin proyek ini untuk prompt AI"
-                  >
-                    {copiedId === proj.id ? (
-                      <Check className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingProject(proj);
-                      setIsModalOpen(true);
-                    }}
-                    className="p-1.5 text-zinc-400 hover:text-blue-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    title="Edit Proyek"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(proj.id, proj.title)}
-                    className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                    title="Hapus Proyek"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Description */}
-              <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-3 line-clamp-3 leading-relaxed">
-                {proj.description}
-              </p>
-
-              {/* Achievements / Metrics */}
-              {proj.achievements && (
-                <div className="mt-3 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[11px] text-emerald-800 dark:text-emerald-300 font-medium">
-                  <span className="font-bold">â˜… Dampak:</span> {proj.achievements}
-                </div>
+              <p className="text-xs sm:text-sm font-semibold">{syncNotification.message}</p>
+              {syncNotification.details && (
+                <p className="text-[11px] text-emerald-300/80 mt-0.5">{syncNotification.details}</p>
               )}
             </div>
-
-            <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800/80">
-              {/* Tech Tags */}
-              <div className="flex flex-wrap gap-1 mb-3">
-                {proj.technologies.map((t, i) => (
-                  <span
-                    key={i}
-                    className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-
-              {/* Links */}
-              <div className="flex items-center gap-3 text-xs">
-                {proj.repo_url && (
-                  <a
-                    href={proj.repo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
-                  >
-                    <Code2 className="w-3.5 h-3.5" /> Repository
-                  </a>
-                )}
-                {proj.demo_url && (
-                  <a
-                    href={proj.demo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-blue-600 hover:underline"
-                  >
-                    <Globe className="w-3.5 h-3.5" /> Live Demo
-                  </a>
-                )}
-              </div>
-            </div>
           </div>
-        ))}
-      </div>
-
-      {filteredProjects.length === 0 && (
-        <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-3xl border border-dashed border-zinc-300 dark:border-zinc-800 p-8">
-          <FolderGit2 className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-zinc-700 dark:text-zinc-300">
-            Tidak ada proyek yang sesuai pencarian
-          </h3>
-          <p className="text-xs text-zinc-500 mt-1">
-            Coba ubah kata kunci atau tambahkan proyek baru ke bank data.
-          </p>
+          <button
+            onClick={() => setSyncNotification(null)}
+            className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
-      {/* Modals */}
+      {/* Search, Filter Tabs & View Switcher */}
+      <div className="space-y-4">
+        {/* Search input + View Switcher */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Cari berdasarkan nama proyek, teknologi (Python, Next.js, Go, dll), peran, atau dampak..."
+              className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm rounded-xl border border-white/10 bg-[#0b1220] text-white placeholder:text-slate-500 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 outline-none transition"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                title="Hapus pencarian"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* View Mode Toggle Button */}
+          <div className="flex items-center gap-1 p-1 bg-[#0b1220] border border-white/10 rounded-xl shrink-0 self-end sm:self-auto">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'grid'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Tampilan Grid Card"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Grid</span>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                viewMode === 'list'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Tampilan List / Baris Komprehensif"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">List</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Interactive Category Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categories.map((c, i) => {
+            const count = c === 'ALL' ? projects.length : (categoryStats[c] || 0);
+            const isSelected = selectedCategory === c;
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedCategory(c)}
+                className={`whitespace-nowrap flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer shrink-0 ${
+                  isSelected
+                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm shadow-indigo-500/10'
+                    : 'bg-white/[0.04] text-slate-400 hover:text-slate-200 border border-white/[0.06] hover:bg-white/[0.08]'
+                }`}
+              >
+                <span>{c === 'ALL' ? 'Semua Kategori' : c}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-indigo-500/30 text-indigo-200' : 'bg-white/[0.08] text-slate-400'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Result Indicator */}
+      <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+        <span>Menampilkan <strong>{filteredProjects.length}</strong> dari {projects.length} proyek</span>
+        {searchQuery && (
+          <span>Filter aktif: &ldquo;{searchQuery}&rdquo;</span>
+        )}
+      </div>
+
+      {/* PROJECTS CONTAINER */}
+      {viewMode === 'grid' ? (
+        /* GRID VIEW */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((proj) => {
+            const bullets = parseAchievements(proj.achievements);
+            const visibleBullets = bullets.slice(0, 2);
+            const remainingBullets = bullets.length - visibleBullets.length;
+
+            const visibleTech = proj.technologies.slice(0, 5);
+            const remainingTech = proj.technologies.length - visibleTech.length;
+
+            return (
+              <div
+                key={proj.id}
+                onClick={() => setDetailProject(proj)}
+                className="glass-card rounded-2xl p-5 border border-white/[0.08] hover:border-indigo-500/50 transition-all flex flex-col justify-between group cursor-pointer relative"
+              >
+                <div>
+                  {/* Top Header: Category & Action Buttons */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${getCategoryBadge(proj.category)}`}>
+                        {proj.category || 'General'}
+                      </span>
+                      {proj.date && (
+                        <span className="text-[10px] text-slate-400 px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                          {proj.date}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Quick action buttons */}
+                    <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => copySingleProject(proj, e)}
+                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/[0.08] transition"
+                        title="Salin ringkasan proyek untuk AI/CV"
+                      >
+                        {copiedId === proj.id ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingProject(proj);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-white/[0.08] transition"
+                        title="Edit Proyek"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(proj.id, proj.title)}
+                        className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/[0.08] transition"
+                        title="Hapus Proyek"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Title (Full readable line-clamp-2) */}
+                  <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-indigo-300 transition-colors line-clamp-2 leading-snug">
+                    {proj.title}
+                  </h3>
+
+                  {/* Role */}
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 mt-1.5">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-400/80 shrink-0" />
+                    <span className="line-clamp-1">{proj.role}</span>
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-300/90 mt-3 line-clamp-3 leading-relaxed">
+                    {proj.description}
+                  </p>
+
+                  {/* Measurable Impact / Achievements Box */}
+                  {bullets.length > 0 && (
+                    <div className="mt-3.5 p-3 rounded-xl bg-emerald-500/[0.07] border border-emerald-500/20 text-xs text-emerald-200/90 font-medium space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-emerald-400">
+                        <span className="flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Dampak Terukur &amp; Capaian</span>
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
+                          {bullets.length} Poin
+                        </span>
+                      </div>
+                      
+                      {visibleBullets.map((b, idx) => (
+                        <div key={idx} className="flex items-start gap-1.5 text-[11px] leading-relaxed">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{b}</span>
+                        </div>
+                      ))}
+
+                      {remainingBullets > 0 && (
+                        <div className="text-[10px] text-emerald-300/80 pt-1 font-semibold flex items-center gap-1">
+                          <span>+{remainingBullets} capaian lainnya</span>
+                          <span className="underline decoration-dotted">(Klik kartu untuk detail)</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Footer: Technologies & External Links */}
+                <div className="mt-4 pt-3.5 border-t border-white/[0.06]">
+                  {/* Tech Tags */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {visibleTech.map((t, i) => (
+                      <span
+                        key={i}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                    {remainingTech > 0 && (
+                      <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-indigo-500/15 border border-indigo-500/30 text-indigo-300">
+                        +{remainingTech} lainnya
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Bottom Action Bar */}
+                  <div className="flex items-center justify-between text-xs pt-1" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-3">
+                      {proj.repo_url && (
+                        <a
+                          href={proj.repo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-slate-400 hover:text-white transition group/link"
+                          title="Lihat Repository GitHub / GitLab"
+                        >
+                          <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Repo</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover/link:opacity-100" />
+                        </a>
+                      )}
+                      {proj.demo_url && (
+                        <a
+                          href={proj.demo_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-sky-400 hover:text-sky-300 transition group/link"
+                          title="Lihat Live Demo"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Demo</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60 group-hover/link:opacity-100" />
+                        </a>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => setDetailProject(proj)}
+                      className="flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+                    >
+                      <span>Lihat Detail</span>
+                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* LIST / EXPANDED VIEW */
+        <div className="space-y-4">
+          {filteredProjects.map((proj) => {
+            const bullets = parseAchievements(proj.achievements);
+
+            return (
+              <div
+                key={proj.id}
+                onClick={() => setDetailProject(proj)}
+                className="glass-card rounded-2xl p-6 border border-white/[0.08] hover:border-indigo-500/50 transition-all flex flex-col lg:flex-row gap-6 justify-between group cursor-pointer"
+              >
+                {/* Left Column: Title, Role, Description, Links */}
+                <div className="lg:w-5/12 space-y-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${getCategoryBadge(proj.category)}`}>
+                      {proj.category || 'General'}
+                    </span>
+                    {proj.date && (
+                      <span className="text-[10px] text-slate-400 px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/[0.05]">
+                        {proj.date}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors leading-snug">
+                    {proj.title}
+                  </h3>
+
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>{proj.role}</span>
+                  </div>
+
+                  <p className="text-xs text-slate-300/90 leading-relaxed">
+                    {proj.description}
+                  </p>
+
+                  {/* Links */}
+                  <div className="flex items-center gap-4 text-xs pt-2" onClick={e => e.stopPropagation()}>
+                    {proj.repo_url && (
+                      <a
+                        href={proj.repo_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.06] transition"
+                      >
+                        <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Repository</span>
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </a>
+                    )}
+                    {proj.demo_url && (
+                      <a
+                        href={proj.demo_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 transition"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Live Demo</span>
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Achievements & Tech Stack */}
+                <div className="lg:w-7/12 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-white/[0.08] pt-4 lg:pt-0 lg:pl-6 space-y-4">
+                  {/* Achievements */}
+                  {bullets.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Dampak Terukur &amp; Capaian Kunci</span>
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                          {bullets.length} Capaian
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {bullets.map((b, idx) => (
+                          <div key={idx} className="flex items-start gap-2 text-xs text-emerald-200/90 leading-relaxed">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                            <span>{b}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tech stack & Actions */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {proj.technologies.map((t, i) => (
+                        <span
+                          key={i}
+                          className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => setDetailProject(proj)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition"
+                      >
+                        <span>Lihat Detail Lengkap</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => copySingleProject(proj, e)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/[0.08] transition"
+                        >
+                          {copiedId === proj.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              <span className="text-emerald-400">Tersalin</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingProject(proj);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-indigo-400 rounded-lg hover:bg-white/[0.08] transition"
+                          title="Edit Proyek"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(proj.id, proj.title)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/[0.08] transition"
+                          title="Hapus Proyek"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {filteredProjects.length === 0 && (
+        <div className="text-center py-16 glass-panel rounded-3xl border border-dashed border-white/10 p-8 space-y-3">
+          <FolderGit2 className="w-12 h-12 text-slate-600 mx-auto" />
+          <h3 className="text-base font-bold text-slate-200">
+            Tidak ada proyek yang sesuai dengan kriteria pencarian
+          </h3>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            Coba bersihkan kata kunci pencarian atau ubah filter kategori untuk melihat proyek lainnya.
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedCategory('ALL');
+            }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/[0.08] transition"
+          >
+            Reset Semua Filter
+          </button>
+        </div>
+      )}
+
+      {/* DETAIL MODAL */}
+      <ProjectDetailModal
+        isOpen={Boolean(detailProject)}
+        project={detailProject}
+        onClose={() => setDetailProject(null)}
+        onEdit={(p) => {
+          setEditingProject(p);
+          setIsModalOpen(true);
+        }}
+        onDelete={handleDelete}
+      />
+
+      {/* CREATE / EDIT MODAL */}
       <ProjectModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -277,6 +800,8 @@ export default function ProjectsPage() {
         onSave={handleSave}
         initialData={editingProject}
       />
+
+      {/* AI PROMPT MODAL */}
       <AiPromptModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
@@ -286,4 +811,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-
