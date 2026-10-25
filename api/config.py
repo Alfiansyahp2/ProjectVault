@@ -5,7 +5,7 @@ Configuration and domain taxonomies for Job & Project Tracker NLP Engine.
 # Tech skills taxonomy for keyword extraction and matching
 TECH_KEYWORDS = [
     # Languages
-    "python", "javascript", "typescript", "java", "c++", "c#", "go", "golang", "rust", "php", "ruby", "swift", "kotlin", "sql", "html", "css", "r",
+    "python", "javascript", "typescript", "java", "c++", "c#", "golang", "go language", "rust", "php", "ruby", "swift", "kotlin", "sql", "html", "css", "r language", "r programming",
     # Frontend
     "react", "react.js", "next.js", "nextjs", "vue", "vue.js", "nuxt", "angular", "svelte", "tailwind", "tailwindcss", "bootstrap", "sass", "redux", "zustand",
     # Backend

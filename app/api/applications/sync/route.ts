@@ -14,7 +14,9 @@ export async function POST(req: NextRequest) {
   try {
     const cwd = process.cwd();
     const parsedJsonPath = path.join(cwd, 'data', 'parsed_applications.json');
-    const parserScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const trackedScript = path.join(cwd, 'api', 'batch_parser.py');
+    const scratchScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const parserScript = fs.existsSync(trackedScript) ? trackedScript : scratchScript;
 
     let body: any = {};
     try {
@@ -23,18 +25,19 @@ export async function POST(req: NextRequest) {
       body = {};
     }
 
-    const batchSize = body?.batchSize;
+    const rawBatch = body?.batchSize;
     const isReset = Boolean(body?.reset);
-    const resetLimit = typeof body?.resetLimit === 'number' ? body.resetLimit : 25;
+    const rawLimit = Number(body?.resetLimit);
+    const resetLimit = Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 25;
 
-    let cmd = `python "${parserScript}"`;
+    let cmd = `python "${parserScript.replace(/\\/g, '/')}"`;
 
     if (isReset) {
       cmd += ` --reset ${resetLimit}`;
-    } else if (batchSize === 'all') {
+    } else if (rawBatch === 'all') {
       cmd += ` --batch-size all`;
-    } else if (typeof batchSize === 'number' && batchSize > 0) {
-      cmd += ` --batch-size ${batchSize}`;
+    } else if (typeof rawBatch === 'number' && Number.isInteger(rawBatch) && rawBatch > 0) {
+      cmd += ` --batch-size ${rawBatch}`;
     } else {
       cmd += ` --batch-size 5`;
     }
@@ -79,54 +82,61 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json'
         };
 
-        for (const appItem of itemsToSync) {
-          const comp = (appItem.company_name || '').trim();
-          const jt = (appItem.job_title || '').trim();
-          const fp = (appItem.file_path || '').trim();
-          const key = fp || `${comp.toLowerCase()}::${jt.toLowerCase()}`;
-          const hash = crypto.createHash('md5').update(key).digest('hex');
-          const docId = `app_${hash.slice(0, 32)}`;
+        // Process items in concurrent batches to prevent serverless gateway timeout (AUD-MED-03)
+        const CONCURRENCY_CHUNK_SIZE = 5;
+        for (let i = 0; i < itemsToSync.length; i += CONCURRENCY_CHUNK_SIZE) {
+          const chunk = itemsToSync.slice(i, i + CONCURRENCY_CHUNK_SIZE);
+          await Promise.all(
+            chunk.map(async (appItem: any) => {
+              const comp = (appItem.company_name || '').trim();
+              const jt = (appItem.job_title || '').trim();
+              const fp = (appItem.file_path || '').trim();
+              const key = fp || `${comp.toLowerCase()}::${jt.toLowerCase()}`;
+              const hash = crypto.createHash('md5').update(key).digest('hex');
+              const docId = `app_${hash.slice(0, 28)}`;
 
-          const payload: any = {
-            company_name: comp,
-            job_title: jt,
-            status: appItem.status || 'applied',
-            applied_date: appItem.applied_date || '2026-01-01',
-            source_portal: appItem.source_portal || 'Direct',
-            summary: appItem.summary || '',
-            key_skills: appItem.key_skills || [],
-            file_path: appItem.file_path || '',
-            notes: appItem.notes || '',
-            cover_letter: (appItem.cover_letter || '').slice(0, 1000)
-          };
+              const payload: any = {
+                company_name: comp,
+                job_title: jt,
+                status: appItem.status || 'applied',
+                applied_date: appItem.applied_date || '2026-01-01',
+                source_portal: appItem.source_portal || 'Direct',
+                summary: appItem.summary || '',
+                key_skills: appItem.key_skills || [],
+                file_path: appItem.file_path || '',
+                notes: appItem.notes || '',
+                cover_letter: (appItem.cover_letter || '').slice(0, 5000)
+              };
 
-          try {
-            const createRes = await fetch(
-              `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents`,
-              {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                  documentId: docId,
-                  data: payload
-                })
-              }
-            );
+              try {
+                const createRes = await fetch(
+                  `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents`,
+                  {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                      documentId: docId,
+                      data: payload
+                    })
+                  }
+                );
 
-            if (createRes.status === 409) {
-              await fetch(
-                `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents/${docId}`,
-                {
-                  method: 'PATCH',
-                  headers,
-                  body: JSON.stringify({ data: payload })
+                if (createRes.status === 409) {
+                  await fetch(
+                    `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents/${docId}`,
+                    {
+                      method: 'PATCH',
+                      headers,
+                      body: JSON.stringify({ data: payload })
+                    }
+                  );
                 }
-              );
-            }
-            appwriteSyncCount++;
-          } catch (syncItemErr) {
-            console.warn(`Failed to sync item ${comp}:`, syncItemErr);
-          }
+                appwriteSyncCount++;
+              } catch (syncItemErr) {
+                console.warn(`Failed to sync item ${comp}:`, syncItemErr);
+              }
+            })
+          );
         }
       } catch (cloudErr) {
         console.warn('Appwrite cloud sync skipped:', cloudErr);
@@ -172,7 +182,9 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   try {
     const cwd = process.cwd();
-    const parserScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const trackedScript = path.join(cwd, 'api', 'batch_parser.py');
+    const scratchScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const parserScript = fs.existsSync(trackedScript) ? trackedScript : scratchScript;
     const parsedJsonPath = path.join(cwd, 'data', 'parsed_applications.json');
 
     let apps: any[] = [];
@@ -183,7 +195,7 @@ export async function GET() {
     }
 
     if (fs.existsSync(parserScript)) {
-      const { stdout } = await execPromise(`python "${parserScript}" --status`, { cwd });
+      const { stdout } = await execPromise(`python "${parserScript.replace(/\\/g, '/')}" --status`, { cwd });
       const statusData = JSON.parse(stdout.trim());
       return NextResponse.json({
         status: 'ready',
