@@ -14,7 +14,9 @@ export async function POST(req: NextRequest) {
   try {
     const cwd = process.cwd();
     const parsedJsonPath = path.join(cwd, 'data', 'parsed_applications.json');
-    const parserScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const trackedScript = path.join(cwd, 'api', 'batch_parser.py');
+    const scratchScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const parserScript = fs.existsSync(trackedScript) ? trackedScript : scratchScript;
 
     let body: any = {};
     try {
@@ -23,18 +25,19 @@ export async function POST(req: NextRequest) {
       body = {};
     }
 
-    const batchSize = body?.batchSize;
+    const rawBatch = body?.batchSize;
     const isReset = Boolean(body?.reset);
-    const resetLimit = typeof body?.resetLimit === 'number' ? body.resetLimit : 25;
+    const rawLimit = Number(body?.resetLimit);
+    const resetLimit = Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 25;
 
-    let cmd = `python "${parserScript}"`;
+    let cmd = `python "${parserScript.replace(/\\/g, '/')}"`;
 
     if (isReset) {
       cmd += ` --reset ${resetLimit}`;
-    } else if (batchSize === 'all') {
+    } else if (rawBatch === 'all') {
       cmd += ` --batch-size all`;
-    } else if (typeof batchSize === 'number' && batchSize > 0) {
-      cmd += ` --batch-size ${batchSize}`;
+    } else if (typeof rawBatch === 'number' && Number.isInteger(rawBatch) && rawBatch > 0) {
+      cmd += ` --batch-size ${rawBatch}`;
     } else {
       cmd += ` --batch-size 5`;
     }
@@ -172,7 +175,9 @@ export async function POST(req: NextRequest) {
 export async function GET() {
   try {
     const cwd = process.cwd();
-    const parserScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const trackedScript = path.join(cwd, 'api', 'batch_parser.py');
+    const scratchScript = path.join(cwd, 'scratch', 'batch_parser.py');
+    const parserScript = fs.existsSync(trackedScript) ? trackedScript : scratchScript;
     const parsedJsonPath = path.join(cwd, 'data', 'parsed_applications.json');
 
     let apps: any[] = [];
@@ -183,7 +188,7 @@ export async function GET() {
     }
 
     if (fs.existsSync(parserScript)) {
-      const { stdout } = await execPromise(`python "${parserScript}" --status`, { cwd });
+      const { stdout } = await execPromise(`python "${parserScript.replace(/\\/g, '/')}" --status`, { cwd });
       const statusData = JSON.parse(stdout.trim());
       return NextResponse.json({
         status: 'ready',
