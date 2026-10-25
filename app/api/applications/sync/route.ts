@@ -82,54 +82,61 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json'
         };
 
-        for (const appItem of itemsToSync) {
-          const comp = (appItem.company_name || '').trim();
-          const jt = (appItem.job_title || '').trim();
-          const fp = (appItem.file_path || '').trim();
-          const key = fp || `${comp.toLowerCase()}::${jt.toLowerCase()}`;
-          const hash = crypto.createHash('md5').update(key).digest('hex');
-          const docId = `app_${hash.slice(0, 32)}`;
+        // Process items in concurrent batches to prevent serverless gateway timeout (AUD-MED-03)
+        const CONCURRENCY_CHUNK_SIZE = 5;
+        for (let i = 0; i < itemsToSync.length; i += CONCURRENCY_CHUNK_SIZE) {
+          const chunk = itemsToSync.slice(i, i + CONCURRENCY_CHUNK_SIZE);
+          await Promise.all(
+            chunk.map(async (appItem: any) => {
+              const comp = (appItem.company_name || '').trim();
+              const jt = (appItem.job_title || '').trim();
+              const fp = (appItem.file_path || '').trim();
+              const key = fp || `${comp.toLowerCase()}::${jt.toLowerCase()}`;
+              const hash = crypto.createHash('md5').update(key).digest('hex');
+              const docId = `app_${hash.slice(0, 28)}`;
 
-          const payload: any = {
-            company_name: comp,
-            job_title: jt,
-            status: appItem.status || 'applied',
-            applied_date: appItem.applied_date || '2026-01-01',
-            source_portal: appItem.source_portal || 'Direct',
-            summary: appItem.summary || '',
-            key_skills: appItem.key_skills || [],
-            file_path: appItem.file_path || '',
-            notes: appItem.notes || '',
-            cover_letter: (appItem.cover_letter || '').slice(0, 1000)
-          };
+              const payload: any = {
+                company_name: comp,
+                job_title: jt,
+                status: appItem.status || 'applied',
+                applied_date: appItem.applied_date || '2026-01-01',
+                source_portal: appItem.source_portal || 'Direct',
+                summary: appItem.summary || '',
+                key_skills: appItem.key_skills || [],
+                file_path: appItem.file_path || '',
+                notes: appItem.notes || '',
+                cover_letter: (appItem.cover_letter || '').slice(0, 5000)
+              };
 
-          try {
-            const createRes = await fetch(
-              `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents`,
-              {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                  documentId: docId,
-                  data: payload
-                })
-              }
-            );
+              try {
+                const createRes = await fetch(
+                  `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents`,
+                  {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                      documentId: docId,
+                      data: payload
+                    })
+                  }
+                );
 
-            if (createRes.status === 409) {
-              await fetch(
-                `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents/${docId}`,
-                {
-                  method: 'PATCH',
-                  headers,
-                  body: JSON.stringify({ data: payload })
+                if (createRes.status === 409) {
+                  await fetch(
+                    `${appwriteEndpoint}/databases/${appwriteDbId}/collections/${appwriteAppsCol}/documents/${docId}`,
+                    {
+                      method: 'PATCH',
+                      headers,
+                      body: JSON.stringify({ data: payload })
+                    }
+                  );
                 }
-              );
-            }
-            appwriteSyncCount++;
-          } catch (syncItemErr) {
-            console.warn(`Failed to sync item ${comp}:`, syncItemErr);
-          }
+                appwriteSyncCount++;
+              } catch (syncItemErr) {
+                console.warn(`Failed to sync item ${comp}:`, syncItemErr);
+              }
+            })
+          );
         }
       } catch (cloudErr) {
         console.warn('Appwrite cloud sync skipped:', cloudErr);

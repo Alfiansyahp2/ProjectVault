@@ -35,7 +35,8 @@ import {
   ArrowUpDown,
   Filter,
   ChevronRight,
-  Eye
+  Eye,
+  GripVertical
 } from 'lucide-react';
 import { JobApplication, ApplicationStatus } from '@/lib/types';
 import { getApplications, saveApplication, deleteApplication } from '@/lib/storage';
@@ -149,6 +150,10 @@ export default function ApplicationsPage() {
     details?: string;
   } | null>(null);
 
+  // Drag and drop state for Kanban
+  const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<ApplicationStatus | null>(null);
+
   // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<JobApplication | null>(null);
@@ -181,6 +186,7 @@ export default function ApplicationsPage() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // 1. Fetch resume parser stats
       const res = await fetch('/api/applications/sync');
       const syncData = await res.json();
       
@@ -191,20 +197,36 @@ export default function ApplicationsPage() {
         setTotalPdfFiles(syncData.totalPdfFiles);
       }
 
+      // 2. Load persistent applications from storage (Appwrite -> LocalStorage)
+      let storedApps = await getApplications();
+
+      // Initial synchronization: merge parsed json into stored applications without overwriting user status/edits
       if (syncData.applications && Array.isArray(syncData.applications) && syncData.applications.length > 0) {
-        setApplications(syncData.applications);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('tracker_applications_data', JSON.stringify(syncData.applications));
+        if (!storedApps || storedApps.length === 0 || storedApps.length < syncData.applications.length) {
+          const storedMap = new Map((storedApps || []).map(a => [a.id, a]));
+          const merged: JobApplication[] = syncData.applications.map((incoming: JobApplication) => {
+            const existing = storedMap.get(incoming.id);
+            // Preserve user modifications (status, notes, etc.)
+            return existing ? { ...incoming, ...existing } : incoming;
+          });
+          (storedApps || []).forEach(sa => {
+            if (!merged.some(m => m.id === sa.id)) {
+              merged.push(sa);
+            }
+          });
+          storedApps = merged;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('tracker_applications_data', JSON.stringify(storedApps));
+          }
         }
-      } else {
-        const apps = await getApplications();
-        setApplications(apps);
       }
+
+      setApplications(storedApps || []);
     } catch (e) {
       console.error('Error loading applications:', e);
       try {
         const apps = await getApplications();
-        setApplications(apps);
+        setApplications(apps || []);
       } catch {}
     } finally {
       setIsLoading(false);
@@ -228,10 +250,22 @@ export default function ApplicationsPage() {
       const data = await res.json();
       if (data.success) {
         if (data.applications && Array.isArray(data.applications)) {
-          setApplications(data.applications);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('tracker_applications_data', JSON.stringify(data.applications));
-          }
+          setApplications(prev => {
+            const prevMap = new Map(prev.map(a => [a.id, a]));
+            const merged: JobApplication[] = data.applications.map((incoming: JobApplication) => {
+              const existing = prevMap.get(incoming.id);
+              return existing ? { ...incoming, ...existing } : incoming;
+            });
+            prev.forEach(sa => {
+              if (!merged.some(m => m.id === sa.id)) {
+                merged.push(sa);
+              }
+            });
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('tracker_applications_data', JSON.stringify(merged));
+            }
+            return merged;
+          });
         } else {
           await loadData();
         }
@@ -277,10 +311,22 @@ export default function ApplicationsPage() {
       const data = await res.json();
       if (data.success) {
         if (data.applications && Array.isArray(data.applications)) {
-          setApplications(data.applications);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('tracker_applications_data', JSON.stringify(data.applications));
-          }
+          setApplications(prev => {
+            const prevMap = new Map(prev.map(a => [a.id, a]));
+            const merged: JobApplication[] = data.applications.map((incoming: JobApplication) => {
+              const existing = prevMap.get(incoming.id);
+              return existing ? { ...incoming, ...existing } : incoming;
+            });
+            prev.forEach(sa => {
+              if (!merged.some(m => m.id === sa.id)) {
+                merged.push(sa);
+              }
+            });
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('tracker_applications_data', JSON.stringify(merged));
+            }
+            return merged;
+          });
         } else {
           await loadData();
         }
@@ -312,20 +358,52 @@ export default function ApplicationsPage() {
   };
 
   const handleSave = async (app: JobApplication) => {
-    await saveApplication(app);
-    loadData();
+    try {
+      const saved = await saveApplication(app);
+      setApplications(prev => {
+        const idx = prev.findIndex(a => a.id === app.id || a.id === saved.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = saved;
+          return next;
+        }
+        return [saved, ...prev];
+      });
+      setIsModalOpen(false);
+      setEditingApp(null);
+    } catch (err) {
+      console.error('Failed to save application:', err);
+    }
   };
 
   const handleDelete = async (id: string, company: string) => {
     if (confirm(`Hapus catatan lamaran di "${company}"?`)) {
-      await deleteApplication(id);
-      loadData();
+      setApplications(prev => prev.filter(a => a.id !== id));
+      try {
+        await deleteApplication(id);
+      } catch (err) {
+        console.error('Failed to delete application:', err);
+        const apps = await getApplications();
+        setApplications(apps || []);
+      }
     }
   };
 
   const handleStatusChange = async (app: JobApplication, newStatus: ApplicationStatus) => {
-    await saveApplication({ ...app, status: newStatus });
-    loadData();
+    if (app.status === newStatus) return;
+
+    // 1. Optimistic UI update so card moves immediately without flicker or reversion
+    const updated: JobApplication = { ...app, status: newStatus };
+    setApplications(prev => prev.map(a => (a.id === app.id ? updated : a)));
+
+    // 2. Persist to storage (Appwrite + LocalStorage)
+    try {
+      await saveApplication(updated);
+    } catch (err) {
+      console.error('Failed to save status change:', err);
+      // Revert if saving fails
+      setApplications(prev => prev.map(a => (a.id === app.id ? app : a)));
+    }
   };
 
   const calculateDaysAgo = (dateStr: string) => {
@@ -802,7 +880,35 @@ export default function ApplicationsPage() {
             return (
               <div
                 key={col.key}
-                className={`bg-[#0b1220]/70 border border-white/[0.07] ${col.borderTop} border-t-2 rounded-2xl p-3.5 flex flex-col min-h-[550px] shadow-lg backdrop-blur-sm transition`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverCol !== col.key) {
+                    setDragOverCol(col.key);
+                  }
+                }}
+                onDragLeave={(e) => {
+                  if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                  if (dragOverCol === col.key) {
+                    setDragOverCol(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const appId = e.dataTransfer.getData('text/plain') || draggedAppId;
+                  setDragOverCol(null);
+                  setDraggedAppId(null);
+                  if (!appId) return;
+                  const targetApp = applications.find(a => a.id === appId);
+                  if (targetApp && targetApp.status !== col.key) {
+                    handleStatusChange(targetApp, col.key);
+                  }
+                }}
+                className={`bg-[#0b1220]/70 border ${
+                  dragOverCol === col.key
+                    ? 'border-indigo-500 ring-2 ring-indigo-500/50 bg-indigo-950/30 shadow-indigo-500/10'
+                    : 'border-white/[0.07]'
+                } ${col.borderTop} border-t-2 rounded-2xl p-3.5 flex flex-col min-h-[550px] shadow-lg backdrop-blur-sm transition-all duration-150`}
               >
                 {/* Column Header */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
@@ -818,24 +924,47 @@ export default function ApplicationsPage() {
                 </div>
 
                 {/* Cards Container */}
-                <div className="space-y-3 flex-1 overflow-y-auto pr-0.5">
+                <div className="space-y-3 flex-1 overflow-y-auto pr-0.5 min-h-[120px]">
+                  {/* Drop zone feedback */}
+                  {dragOverCol === col.key && (
+                    <div className="py-3 px-2 border-2 border-dashed border-indigo-400/60 rounded-xl bg-indigo-500/10 text-center text-xs font-bold text-indigo-300 animate-pulse transition">
+                      Lepas untuk memindahkan ke {col.label}
+                    </div>
+                  )}
+
                   {items.map((app) => {
                     const daysAgo = calculateDaysAgo(app.applied_date);
                     const isFollowUpDue = app.status === 'applied' && daysAgo >= 7;
                     const initials = getCompanyInitials(app.company_name);
                     const avatarGrad = getAvatarGradient(app.company_name);
+                    const isDragged = draggedAppId === app.id;
 
                     return (
                       <div
                         key={app.id}
-                        className={`group relative bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] hover:border-indigo-500/40 rounded-xl p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 ${
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', app.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedAppId(app.id);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedAppId(null);
+                          setDragOverCol(null);
+                        }}
+                        className={`group relative bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] hover:border-indigo-500/40 rounded-xl p-3.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 cursor-grab active:cursor-grabbing select-none ${
+                          isDragged ? 'opacity-30 scale-95 border-dashed border-indigo-400 ring-2 ring-indigo-400/30' : ''
+                        } ${
                           isFollowUpDue ? 'ring-1 ring-amber-500/30' : ''
                         }`}
                       >
-                        {/* Company Header with Avatar Initial */}
+                        {/* Company Header with Avatar Initial & Drag Handle */}
                         <div className="flex items-start gap-2.5">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-tr ${avatarGrad} flex items-center justify-center text-white text-[11px] font-extrabold shrink-0 shadow-sm`}>
-                            {initials}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <GripVertical className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 opacity-40 group-hover:opacity-100 transition" />
+                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-tr ${avatarGrad} flex items-center justify-center text-white text-[11px] font-extrabold shadow-sm`}>
+                              {initials}
+                            </div>
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="text-xs sm:text-sm font-bold text-white leading-snug truncate group-hover:text-indigo-300 transition" title={app.company_name}>
@@ -847,9 +976,14 @@ export default function ApplicationsPage() {
                           </div>
                           
                           {/* Quick Card Edit/Delete Icons */}
-                          <div className="flex items-center opacity-70 group-hover:opacity-100 transition shrink-0">
+                          <div 
+                            className="flex items-center opacity-70 group-hover:opacity-100 transition shrink-0"
+                            draggable={false}
+                            onMouseDown={e => e.stopPropagation()}
+                          >
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditingApp(app);
                                 setIsModalOpen(true);
                               }}
@@ -859,7 +993,10 @@ export default function ApplicationsPage() {
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
-                              onClick={() => handleDelete(app.id, app.company_name)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(app.id, app.company_name);
+                              }}
                               className="p-1 text-slate-400 hover:text-rose-400 rounded transition"
                               title="Hapus"
                             >
@@ -904,18 +1041,25 @@ export default function ApplicationsPage() {
                         )}
 
                         {/* Card Footer Toolbar */}
-                        <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                        <div 
+                          className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-xs"
+                          draggable={false}
+                          onMouseDown={e => e.stopPropagation()}
+                        >
                           {app.cover_letter ? (
                             <button
-                              onClick={() => setSelectedCoverLetter({
-                                title: `${app.company_name} — ${app.job_title}`,
-                                company: app.company_name,
-                                job: app.job_title,
-                                date: app.applied_date,
-                                portal: app.source_portal || 'Direct',
-                                text: app.cover_letter || '',
-                                skills: app.key_skills
-                              })}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCoverLetter({
+                                  title: `${app.company_name} — ${app.job_title}`,
+                                  company: app.company_name,
+                                  job: app.job_title,
+                                  date: app.applied_date,
+                                  portal: app.source_portal || 'Direct',
+                                  text: app.cover_letter || '',
+                                  skills: app.key_skills
+                                });
+                              }}
                               className="text-[11px] font-bold text-sky-400 hover:text-sky-300 flex items-center gap-1 transition"
                               title="Buka dokumen cover letter lengkap"
                             >
@@ -928,8 +1072,13 @@ export default function ApplicationsPage() {
 
                           {/* Quick Status Dropdown */}
                           <select
+                            draggable={false}
+                            onMouseDown={e => e.stopPropagation()}
                             value={app.status}
-                            onChange={e => handleStatusChange(app, e.target.value as ApplicationStatus)}
+                            onChange={e => {
+                              e.stopPropagation();
+                              handleStatusChange(app, e.target.value as ApplicationStatus);
+                            }}
                             className="text-[10px] font-semibold bg-[#0b1220] border border-white/[0.12] rounded-lg px-2 py-1 text-slate-300 hover:border-indigo-500/40 outline-none transition cursor-pointer"
                           >
                             <option value="wishlist">Wishlist</option>

@@ -58,6 +58,21 @@ export function getAppwriteClient() {
   return { client, databases, account, config };
 }
 
+/**
+ * Validates if an ID conforms to Appwrite Document UID constraints:
+ * - Must be at most 36 characters
+ * - Valid chars: a-z, A-Z, 0-9, period (.), hyphen (-), underscore (_)
+ * - Cannot start with a leading period, hyphen, or underscore
+ * - Excludes client-side local IDs ('local_', 'temp_') and mock application slugs ('app_surat_')
+ */
+export function isValidAppwriteId(id?: string | null): boolean {
+  if (!id || typeof id !== 'string') return false;
+  const trimmed = id.trim();
+  if (trimmed.length < 1 || trimmed.length > 36) return false;
+  if (trimmed.startsWith('local_') || trimmed.startsWith('temp_') || trimmed.startsWith('app_surat_')) return false;
+  return /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(trimmed);
+}
+
 // Appwrite operations
 export async function fetchProjectsFromAppwrite(): Promise<Project[] | null> {
   const aw = getAppwriteClient();
@@ -94,31 +109,45 @@ export async function saveProjectToAppwrite(project: Project): Promise<string | 
   if (!aw) return null;
 
   const data: Record<string, any> = {
-    title: project.title,
-    role: project.role || 'Developer',
-    category: project.category || 'General',
-    technologies: project.technologies || [],
-    description: project.description,
-    achievements: project.achievements || '',
-    date: project.date || '',
+    title: (project.title || '').slice(0, 255),
+    role: (project.role || 'Developer').slice(0, 255),
+    category: (project.category || 'General').slice(0, 255),
+    technologies: Array.isArray(project.technologies) ? project.technologies : [],
+    description: (project.description || '').slice(0, 5000),
+    achievements: (project.achievements || '').slice(0, 5000),
+    date: (project.date || '').slice(0, 50),
   };
 
   if (project.repo_url && (project.repo_url.startsWith('http://') || project.repo_url.startsWith('https://'))) {
-    data.repo_url = project.repo_url.trim();
+    data.repo_url = project.repo_url.trim().slice(0, 1000);
   }
   if (project.demo_url && (project.demo_url.startsWith('http://') || project.demo_url.startsWith('https://'))) {
-    data.demo_url = project.demo_url.trim();
+    data.demo_url = project.demo_url.trim().slice(0, 1000);
   }
 
   try {
-    if (project.id && !project.id.startsWith('local_')) {
-      await aw.databases.updateDocument(
-        aw.config.databaseId,
-        aw.config.projectsCollectionId,
-        project.id,
-        data
-      );
-      return project.id;
+    if (isValidAppwriteId(project.id)) {
+      try {
+        await aw.databases.updateDocument(
+          aw.config.databaseId,
+          aw.config.projectsCollectionId,
+          project.id,
+          data
+        );
+        return project.id;
+      } catch (updateErr: any) {
+        // Document not found on remote (404), fall back to create
+        if (updateErr?.code === 404 || updateErr?.status === 404) {
+          const doc = await aw.databases.createDocument(
+            aw.config.databaseId,
+            aw.config.projectsCollectionId,
+            ID.unique(),
+            data
+          );
+          return doc.$id;
+        }
+        throw updateErr;
+      }
     } else {
       const doc = await aw.databases.createDocument(
         aw.config.databaseId,
@@ -136,7 +165,7 @@ export async function saveProjectToAppwrite(project: Project): Promise<string | 
 
 export async function deleteProjectFromAppwrite(id: string): Promise<boolean> {
   const aw = getAppwriteClient();
-  if (!aw || id.startsWith('local_')) return false;
+  if (!aw || !isValidAppwriteId(id)) return false;
 
   try {
     await aw.databases.deleteDocument(
@@ -145,7 +174,10 @@ export async function deleteProjectFromAppwrite(id: string): Promise<boolean> {
       id
     );
     return true;
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === 404 || err?.status === 404) {
+      return true;
+    }
     console.error('Appwrite delete project error:', err);
     return false;
   }
@@ -220,33 +252,47 @@ export async function saveApplicationToAppwrite(appItem: JobApplication): Promis
   if (!aw) return null;
 
   const data: Record<string, any> = {
-    company_name: appItem.company_name,
-    job_title: appItem.job_title,
-    status: appItem.status,
-    applied_date: appItem.applied_date,
-    source_portal: appItem.source_portal || '',
-    summary: appItem.summary || '',
-    key_skills: appItem.key_skills || [],
-    file_path: appItem.file_path || '',
-    salary_range: appItem.salary_range || '',
-    notes: appItem.notes || '',
-    job_description: appItem.job_description || '',
-    cover_letter: appItem.cover_letter || '',
+    company_name: (appItem.company_name || '').slice(0, 255),
+    job_title: (appItem.job_title || '').slice(0, 255),
+    status: appItem.status || 'applied',
+    applied_date: appItem.applied_date || new Date().toISOString().split('T')[0],
+    source_portal: (appItem.source_portal || '').slice(0, 255),
+    summary: (appItem.summary || '').slice(0, 2000),
+    key_skills: Array.isArray(appItem.key_skills) ? appItem.key_skills : [],
+    file_path: (appItem.file_path || '').slice(0, 500),
+    salary_range: (appItem.salary_range || '').slice(0, 255),
+    notes: (appItem.notes || '').slice(0, 5000),
+    job_description: (appItem.job_description || '').slice(0, 5000),
+    cover_letter: (appItem.cover_letter || '').slice(0, 5000),
   };
 
   if (appItem.job_link && (appItem.job_link.startsWith('http://') || appItem.job_link.startsWith('https://'))) {
-    data.job_link = appItem.job_link.trim();
+    data.job_link = appItem.job_link.trim().slice(0, 1000);
   }
 
   try {
-    if (appItem.id && !appItem.id.startsWith('local_')) {
-      await aw.databases.updateDocument(
-        aw.config.databaseId,
-        aw.config.applicationsCollectionId,
-        appItem.id,
-        data
-      );
-      return appItem.id;
+    if (isValidAppwriteId(appItem.id)) {
+      try {
+        await aw.databases.updateDocument(
+          aw.config.databaseId,
+          aw.config.applicationsCollectionId,
+          appItem.id,
+          data
+        );
+        return appItem.id;
+      } catch (updateErr: any) {
+        // Document not found on remote (404), fall back to create
+        if (updateErr?.code === 404 || updateErr?.status === 404) {
+          const doc = await aw.databases.createDocument(
+            aw.config.databaseId,
+            aw.config.applicationsCollectionId,
+            ID.unique(),
+            data
+          );
+          return doc.$id;
+        }
+        throw updateErr;
+      }
     } else {
       const doc = await aw.databases.createDocument(
         aw.config.databaseId,
@@ -264,7 +310,7 @@ export async function saveApplicationToAppwrite(appItem: JobApplication): Promis
 
 export async function deleteApplicationFromAppwrite(id: string): Promise<boolean> {
   const aw = getAppwriteClient();
-  if (!aw || id.startsWith('local_')) return false;
+  if (!aw || !isValidAppwriteId(id)) return false;
 
   try {
     await aw.databases.deleteDocument(
@@ -273,7 +319,10 @@ export async function deleteApplicationFromAppwrite(id: string): Promise<boolean
       id
     );
     return true;
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === 404 || err?.status === 404) {
+      return true;
+    }
     console.error('Appwrite delete application error:', err);
     return false;
   }

@@ -18,7 +18,7 @@ MONTHS_MAP = {
 
 TECH_KEYWORDS = [
     "Next.js", "React", "Vue", "TypeScript", "JavaScript", "Python", "PHP",
-    "Laravel", "Lumen", "Django", "FastAPI", "Go", "Golang", "Flutter", "Dart",
+    "Laravel", "Lumen", "Django", "FastAPI", "Golang", "Flutter", "Dart",
     "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker", "Node.js", "Express",
     "Tailwind", "Bootstrap", "Git", "REST API", "GraphQL", "Algolia", "Prisma"
 ]
@@ -66,7 +66,11 @@ def extract_portal(text: str) -> str:
                 return portal_name
     return "Direct / Job Portal"
 
-def clean_company_name(name: str) -> str:
+def clean_company_name(name: str, applicant_name: str = None) -> str:
+    target_applicant = applicant_name or os.getenv('APPLICANT_NAME', '').strip()
+    if target_applicant:
+        name = re.sub(rf'[-_]?\s*{re.escape(target_applicant)}.*$', '', name, flags=re.IGNORECASE).strip()
+    name = re.sub(r'[-_]?\s*(?:cv|resume|portfolio|portofolio|kandidat|pelamar|applicant|candidate|surat\s*lamaran).*$', '', name, flags=re.IGNORECASE).strip()
     name = re.sub(r'[-_]?\s*alfiansyah.*$', '', name, flags=re.IGNORECASE).strip()
     name = re.split(r'\b(?:jln\.?|jl\.?|jalan|gedung|lantai|no\.\s*\d+)\b', name, flags=re.IGNORECASE)[0].strip(' ,.-')
     name = re.sub(r'^(?:hrd\s*(?:[/,&]\s*tim\s*rekrutmen)?\s*|panitia\s*rekrutmen\s*pjlp\s*|yth\.?\s*)', '', name, flags=re.IGNORECASE).strip(' ,.-')
@@ -76,7 +80,11 @@ def extract_company(text: str, filepath: str) -> str:
     base = os.path.splitext(os.path.basename(filepath))[0]
     fn_clean = re.sub(r'^(?:surat\s*lamaran\s*[-_]?\s*|cover\s*letter\s*[-_]?\s*)', '', base, flags=re.IGNORECASE).strip()
     fn_clean = clean_company_name(fn_clean)
-    if fn_clean and len(fn_clean) > 2 and fn_clean.lower() not in ['alfiansyahpp', 'ptsibasurya']:
+    target_applicant = os.getenv('APPLICANT_NAME', '').strip().lower()
+    is_applicant_token = bool(target_applicant and (target_applicant in fn_clean.lower() or target_applicant.replace(' ', '') in fn_clean.lower()))
+    is_generic_token = fn_clean.lower() in ('kandidat', 'pelamar', 'resume', 'cv') or 'alfiansyah' in fn_clean.lower()
+
+    if fn_clean and len(fn_clean) > 2 and not (is_applicant_token or is_generic_token):
         return fn_clean
 
     lines = [l.strip() for l in text.split('\n') if l.strip()]
@@ -138,7 +146,12 @@ def extract_skills(text: str) -> list:
     text_lower = text.lower()
     detected = []
     for skill in TECH_KEYWORDS:
-        pat = r'(?<![a-zA-Z0-9_-])' + re.escape(skill.lower()) + r'(?![a-zA-Z0-9_-])'
+        if skill.lower() in ("r", "c"):
+            pat = r'\b(?:bahasa\s+' + re.escape(skill.lower()) + r'|' + re.escape(skill.lower()) + r'\s+(?:programming|language|studio))\b'
+        elif skill.lower() == "go":
+            pat = r'\b(?:golang|go\s+(?:language|programming|developer|engineer))\b'
+        else:
+            pat = r'(?<![a-zA-Z0-9_-])' + re.escape(skill.lower()) + r'(?![a-zA-Z0-9_-])'
         if re.search(pat, text_lower):
             detected.append(skill)
     return list(dict.fromkeys(detected))

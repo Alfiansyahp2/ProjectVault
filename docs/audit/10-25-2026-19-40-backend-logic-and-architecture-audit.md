@@ -28,13 +28,13 @@ Secara umum, arsitektur dasar yang menggabungkan **Next.js Serverless Route Hand
 | 3 | `AUD-HIGH-02` | `lib/storage.ts` | **HIGH** | **Selesai** | `originalId` dipertahankan saat migrasi local ke cloud; tidak ada lagi duplikasi item |
 | 4 | `AUD-HIGH-03` | `app/api/applications/upload-parse` | **HIGH** | **Selesai** | Dibatasi secara ketat dengan whitelist direktori `data/` dan format `.pdf` |
 | 5 | `AUD-HIGH-04` | `app/api/applications/upload-parse` | **HIGH** | **Selesai** | Blok `try ... finally { fs.unlinkSync }` membersihkan berkas temp PDF & limit 15MB |
-| 6 | `AUD-MED-01` | `api/services/nlp_engine.py` | **MEDIUM** | Terbuka | Inkonsistensi status casing (`"Applied"` vs `"applied"`), merusak UI filter & form |
-| 7 | `AUD-MED-02` | `api/config.py` | **MEDIUM** | Terbuka | False-positive deteksi keahlian karakter tunggal (`"r"`, `"go"`) pada teks Indonesia |
-| 8 | `AUD-MED-03` | `app/api/applications/sync` | **MEDIUM** | Terbuka | 91 sekuensial HTTP fetch ke Appwrite Cloud memicu Serverless Gateway Timeout (HTTP 504) |
-| 9 | `AUD-MED-04` | `api/services/analyzer.py` | **MEDIUM** | Terbuka | Draf cover letter menghasilkan spasi kosong jika pengguna belum memiliki riwayat proyek |
-| 10 | `AUD-MED-05` | `api/services/nlp_engine.py` | **MEDIUM** | Terbuka | Nama pengembang di-hardcode di regex pembersih nama perusahaan |
-| 11 | `AUD-LOW-01` | `api/models/resume.py` | **LOW** | Terbuka | Model Pydantic `ResumeItem` tidak memiliki atribut `cover_letter` |
-| 12 | `AUD-LOW-02` | `app/api/applications/sync` | **LOW** | Terbuka | Teks `cover_letter` dipotong sepihak pada 1000 karakter tanpa peringatan |
+| 6 | `AUD-MED-01` | `api/services/nlp_engine.py` | **MEDIUM** | **Selesai** | Status dinormalisasi ke casing konsisten `"applied"` pada engine & model Pydantic |
+| 7 | `AUD-MED-02` | `api/config.py` | **MEDIUM** | **Selesai** | Disambiguasi kualifikasi `"golang"`, `"go language"`, dan context boundary pada `"r"` |
+| 8 | `AUD-MED-03` | `app/api/applications/sync` | **MEDIUM** | **Selesai** | Loop sekuensial diganti batch concurrency (`CHUNK_SIZE = 5`) via `Promise.all` |
+| 9 | `AUD-MED-04` | `api/services/analyzer.py` | **MEDIUM** | **Selesai** | Draf cover letter memiliki paragraf motivasi elegan saat daftar proyek kosong |
+| 10 | `AUD-MED-05` | `api/services/nlp_engine.py` | **MEDIUM** | **Selesai** | Regex pembersih nama perusahaan digeneralisasi via `APPLICANT_NAME` & generic patterns |
+| 11 | `AUD-LOW-01` | `api/models/resume.py` | **LOW** | **Selesai** | Atribut `cover_letter: Optional[str] = ""` ditambahkan ke model `ResumeItem` |
+| 12 | `AUD-LOW-02` | `app/api/applications/sync & lib/appwrite.ts` | **LOW** | **Selesai** | Batas teks `cover_letter` diselaraskan dengan batas schema Appwrite (5000 karakter) |
 
 ---
 

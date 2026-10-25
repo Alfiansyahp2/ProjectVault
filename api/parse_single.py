@@ -17,7 +17,7 @@ MONTHS_MAP = {
 
 TECH_KEYWORDS = [
     "Next.js", "React", "Vue", "TypeScript", "JavaScript", "Python", "PHP",
-    "Laravel", "Lumen", "Django", "FastAPI", "Go", "Golang", "Flutter", "Dart",
+    "Laravel", "Lumen", "Django", "FastAPI", "Golang", "Flutter", "Dart",
     "PostgreSQL", "MySQL", "MongoDB", "Redis", "Docker", "Node.js", "Express",
     "Tailwind", "Bootstrap", "Git", "REST API", "GraphQL", "Algolia", "Prisma",
     "Linux", "Nginx", "GitHub", "Unit Testing", "Microservices", "Playwright"
@@ -59,7 +59,11 @@ def extract_portal(text: str) -> str:
             return name
     return "Direct / Job Portal"
 
-def clean_company_name(name: str) -> str:
+def clean_company_name(name: str, applicant_name: str = None) -> str:
+    target_applicant = applicant_name or os.getenv('APPLICANT_NAME', '').strip()
+    if target_applicant:
+        name = re.sub(rf'[-_]?\s*{re.escape(target_applicant)}.*$', '', name, flags=re.IGNORECASE).strip()
+    name = re.sub(r'[-_]?\s*(?:cv|resume|portfolio|portofolio|kandidat|pelamar|applicant|candidate|surat\s*lamaran).*$', '', name, flags=re.IGNORECASE).strip()
     name = re.sub(r'[-_]?\s*alfiansyah.*$', '', name, flags=re.IGNORECASE).strip()
     name = re.split(r'\b(?:jln\.?|jl\.?|jalan|gedung|lantai|no\.\s*\d+)\b', name, flags=re.IGNORECASE)[0].strip(' ,.-')
     name = re.sub(r'^(?:hrd\s*(?:[/,&]\s*tim\s*rekrutmen)?\s*|panitia\s*rekrutmen\s*pjlp\s*|yth\.?\s*)', '', name, flags=re.IGNORECASE).strip(' ,.-')
@@ -128,7 +132,12 @@ def extract_skills(text: str) -> list:
     tl = text.lower()
     detected = []
     for s in TECH_KEYWORDS:
-        pat = r'(?<![a-zA-Z0-9_-])' + re.escape(s.lower()) + r'(?![a-zA-Z0-9_-])'
+        if s.lower() in ("r", "c"):
+            pat = r'\b(?:bahasa\s+' + re.escape(s.lower()) + r'|' + re.escape(s.lower()) + r'\s+(?:programming|language|studio))\b'
+        elif s.lower() == "go":
+            pat = r'\b(?:golang|go\s+(?:language|programming|developer|engineer))\b'
+        else:
+            pat = r'(?<![a-zA-Z0-9_-])' + re.escape(s.lower()) + r'(?![a-zA-Z0-9_-])'
         if re.search(pat, tl):
             detected.append(s)
     return list(dict.fromkeys(detected))
