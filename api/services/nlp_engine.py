@@ -36,9 +36,15 @@ def extract_portal(text: str) -> str:
                 return portal_name
     return "Direct / Other"
 
-def clean_company_name(name: str) -> str:
+def clean_company_name(name: str, applicant_name: Optional[str] = None) -> str:
     """Clean company name by removing address details, applicant names, and extra symbols."""
-    # Remove applicant suffixes
+    # Check dynamic applicant name from param or env (AUD-MED-05)
+    target_applicant = applicant_name or os.getenv('APPLICANT_NAME', '').strip()
+    if target_applicant:
+        name = re.sub(rf'[-_]?\s*{re.escape(target_applicant)}.*$', '', name, flags=re.IGNORECASE).strip()
+
+    # Generic applicant and document suffixes (e.g. _Resume, _CV, _Kandidat, etc.)
+    name = re.sub(r'[-_]?\s*(?:cv|resume|portfolio|portofolio|kandidat|pelamar|applicant|candidate|surat\s*lamaran).*$', '', name, flags=re.IGNORECASE).strip()
     name = re.sub(r'[-_]?\s*alfiansyah.*$', '', name, flags=re.IGNORECASE).strip()
     # Remove address parts (Jln., Jl., Jalan, No., Gedung, Lantai)
     name = re.split(r'\b(?:jln\.?|jl\.?|jalan|gedung|lantai|no\.\s*\d+)\b', name, flags=re.IGNORECASE)[0].strip(' ,.-')
@@ -128,11 +134,18 @@ def extract_job_title(text: str) -> str:
     return "Software Engineer"
 
 def extract_skills(text: str) -> List[str]:
-    """Extract technical keywords based on taxonomy ontology matching."""
+    """Extract technical keywords based on taxonomy ontology matching with false-positive prevention (AUD-MED-02)."""
     text_lower = text.lower()
     detected = []
     for skill in TECH_KEYWORDS:
-        pat = r'(?<![a-zA-Z0-9_-])' + re.escape(skill) + r'(?![a-zA-Z0-9_-])'
+        # Disambiguate single-letter or common-word keywords to prevent false-positives
+        if skill in ("r", "c"):
+            pat = r'\b(?:bahasa\s+' + re.escape(skill) + r'|' + re.escape(skill) + r'\s+(?:programming|language|studio))\b'
+        elif skill == "go":
+            pat = r'\b(?:golang|go\s+(?:language|programming|developer|engineer))\b'
+        else:
+            pat = r'(?<![a-zA-Z0-9_-])' + re.escape(skill) + r'(?![a-zA-Z0-9_-])'
+
         if re.search(pat, text_lower):
             detected.append(skill)
     return list(dict.fromkeys(detected))
@@ -170,7 +183,7 @@ def parse_pdf_document(filepath: str) -> Dict[str, Any]:
         "source_portal": portal,
         "key_skills": skills,
         "summary": summary,
-        "status": "Applied",
+        "status": "applied",
         "cover_letter_preview": cleaned_text[:350].strip(),
         "cover_letter": cleaned_text.strip()
     }

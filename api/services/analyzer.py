@@ -93,7 +93,14 @@ def generate_cover_letter(
             metric = f" ({p.achievements})" if p.achievements else ""
             proj_bullets.append(f"- **{p.title}** ({p.role}): Built using {tech_str}. {p.description}{metric}")
             
-        proj_section = "\n".join(proj_bullets)
+        if proj_bullets:
+            proj_body = "Here are relevant projects that demonstrate my qualifications:\n" + "\n".join(proj_bullets)
+        else:
+            proj_body = (
+                "Throughout my technical journey, I have cultivated a strong foundation in designing, developing, "
+                "and maintaining reliable software applications. I am eager to apply my problem-solving mindset and dedication "
+                "to create impactful results for your upcoming initiatives."
+            )
         
         closing = (
             f"Given your requirements in {', '.join(detected_skills[:5]) if detected_skills else 'these core areas'}, "
@@ -101,7 +108,7 @@ def generate_cover_letter(
             f"I would welcome the opportunity to discuss how my skillset aligns with {company_name}'s goals. "
             f"Thank you for your time and consideration.\n\nSincerely,\n{applicant_name}"
         )
-        return f"{greeting}\n\n{intro}\n\nHere are relevant projects that demonstrate my qualifications:\n{proj_section}\n\n{closing}"
+        return f"{greeting}\n\n{intro}\n\n{proj_body}\n\n{closing}"
     else:
         # Bahasa Indonesia (default)
         greeting = f"Yth. Tim Rekrutmen {company_name},"
@@ -122,17 +129,27 @@ def generate_cover_letter(
                 f"  Uraian: {p.description}.{achievement_text}"
             )
             
-        proj_section = "\n\n".join(proj_bullets)
         skills_highlight = f", khususnya dalam pemanfaatan {', '.join(detected_skills[:5])}" if detected_skills else ""
+
+        if proj_bullets:
+            proj_body = "Berikut beberapa proyek terkait yang membuktikan kompetensi saya:\n\n" + "\n\n".join(proj_bullets)
+            transition = f"Dengan latar belakang pengalaman praktis tersebut{skills_highlight}, "
+        else:
+            proj_body = (
+                "Sepanjang perjalanan profesional dan eksplorasi teknis saya, saya telah membangun fondasi yang kokoh dalam "
+                "merancang, mengimplementasikan, serta mengoptimalkan solusi perangkat lunak. Saya sangat antusias untuk menerapkan dedikasi, "
+                "kemampuan adaptasi cepat, dan etos kerja berorientasi hasil ini demi kesuksesan inisiatif tim Anda."
+            )
+            transition = f"Dengan komitmen pembelajaran berkelanjutan dan kompetensi teknis tersebut{skills_highlight}, "
         
         closing = (
-            f"Dengan latar belakang pengalaman praktis tersebut{skills_highlight}, "
+            f"{transition}"
             f"saya siap beradaptasi dengan cepat dan berkolaborasi secara produktif bersama {company_name}.\n\n"
             f"Saya sangat antusias untuk berdiskusi lebih lanjut mengenai bagaimana portofolio dan keahlian saya dapat mendukung target perusahaan Anda. "
             f"Terima kasih atas waktu dan kesempatan yang diberikan.\n\n"
             f"Hormat saya,\n{applicant_name}"
         )
-        return f"{greeting}\n\n{intro}\n\nBerikut beberapa proyek terkait yang membuktikan kompetensi saya:\n\n{proj_section}\n\n{closing}"
+        return f"{greeting}\n\n{intro}\n\n{proj_body}\n\n{closing}"
 
 def analyze_job_posting(payload: AnalyzeJobRequest) -> AnalyzeJobResponse:
     """Core analysis orchestrator: extracts skills, ranks matching projects, and crafts drafts."""
