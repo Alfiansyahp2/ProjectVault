@@ -171,7 +171,8 @@ def parse_pdf_document(filepath: str) -> Dict[str, Any]:
         "key_skills": skills,
         "summary": summary,
         "status": "Applied",
-        "cover_letter_preview": cleaned_text[:350].strip()
+        "cover_letter_preview": cleaned_text[:350].strip(),
+        "cover_letter": cleaned_text.strip()
     }
 
 def scan_all_resumes(base_dir: str = "data") -> List[Dict[str, Any]]:
