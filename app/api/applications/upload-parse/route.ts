@@ -78,16 +78,25 @@ export async function POST(req: NextRequest) {
       const body = await req.json();
       const localFilePath = body?.localFilePath;
 
-      if (!localFilePath) {
+      if (!localFilePath || typeof localFilePath !== 'string') {
         return NextResponse.json(
-          { success: false, error: 'Parameter localFilePath wajib disertakan.' },
+          { success: false, error: 'Parameter localFilePath wajib disertakan dalam format string.' },
           { status: 400 }
         );
       }
 
+      // AUD-HIGH-03: Security boundary check to prevent arbitrary file reading & path traversal
+      const safeDataDir = path.resolve(cwd, 'data');
       const absolutePath = path.isAbsolute(localFilePath) 
-        ? localFilePath 
-        : path.join(cwd, localFilePath);
+        ? path.resolve(localFilePath) 
+        : path.resolve(cwd, localFilePath);
+
+      if (!absolutePath.startsWith(safeDataDir) || !absolutePath.toLowerCase().endsWith('.pdf')) {
+        return NextResponse.json(
+          { success: false, error: 'Akses ditolak: Hanya berkas PDF di dalam direktori data/ yang diizinkan.' },
+          { status: 403 }
+        );
+      }
 
       if (!fs.existsSync(absolutePath)) {
         return NextResponse.json(
@@ -116,7 +125,23 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Check upload size limit (max 15MB)
+      const MAX_UPLOAD_SIZE = 15 * 1024 * 1024;
+      if (file.size > MAX_UPLOAD_SIZE) {
+        return NextResponse.json(
+          { success: false, error: 'Ukuran berkas melebihi batas maksimum 15MB.' },
+          { status: 400 }
+        );
+      }
+
       const originalName = file.name || 'uploaded_document.pdf';
+      if (!originalName.toLowerCase().endsWith('.pdf')) {
+        return NextResponse.json(
+          { success: false, error: 'Hanya dokumen PDF (.pdf) yang didukung untuk ekstraksi teks.' },
+          { status: 400 }
+        );
+      }
+
       const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
       const uploadDir = path.join(cwd, 'scratch', 'uploads');
       
@@ -129,7 +154,19 @@ export async function POST(req: NextRequest) {
       const buffer = Buffer.from(arrayBuffer);
       fs.writeFileSync(targetPath, buffer);
 
-      const parsedData = await parsePdfWithPython(targetPath, cwd);
+      let parsedData: any = null;
+      try {
+        parsedData = await parsePdfWithPython(targetPath, cwd);
+      } finally {
+        // AUD-HIGH-04: Auto-cleanup uploaded temp file from disk to avoid disk leakage/bloat
+        if (fs.existsSync(targetPath)) {
+          try {
+            fs.unlinkSync(targetPath);
+          } catch (unlinkErr) {
+            console.warn('Gagal menghapus berkas sementara upload:', targetPath, unlinkErr);
+          }
+        }
+      }
 
       return NextResponse.json({
         success: true,

@@ -23,11 +23,11 @@ Secara umum, arsitektur dasar yang menggabungkan **Next.js Serverless Route Hand
 
 | No | ID Temuan | Komponen | Tingkat Keparahan | Status | Dampak Operasional |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | `AUD-CRIT-01` | `app/api/applications/sync` | **CRITICAL** | Terbuka | Deployment failure; HTTP 500 karena script berada di `scratch/` (di-ignore git) |
-| 2 | `AUD-HIGH-01` | `lib/storage.ts` | **HIGH** | Terbuka | False failure saat data Appwrite kosong (`remote.length > 0`), membangkitkan data dummy |
-| 3 | `AUD-HIGH-02` | `lib/storage.ts` | **HIGH** | Terbuka | Duplikasi data lokal saat offline item tersinkron ke cloud (ID desinkronisasi) |
-| 4 | `AUD-HIGH-03` | `app/api/applications/upload-parse` | **HIGH** | Terbuka | Potensi Arbitrary File Read / Path Traversal via parameter `localFilePath` |
-| 5 | `AUD-HIGH-04` | `app/api/applications/upload-parse` | **HIGH** | Terbuka | File PDF drag-and-drop tidak pernah dihapus dari disk (*disk leakage*) |
+| 1 | `AUD-CRIT-01` | `app/api/applications/sync` | **CRITICAL** | **Selesai** | Deployment failure; script dipindahkan ke `api/batch_parser.py` (terlacak Git) |
+| 2 | `AUD-HIGH-01` | `lib/storage.ts` | **HIGH** | **Selesai** | Validasi diubah ke `remote !== null`; state kosong sah tidak lagi membangkitkan dummy |
+| 3 | `AUD-HIGH-02` | `lib/storage.ts` | **HIGH** | **Selesai** | `originalId` dipertahankan saat migrasi local ke cloud; tidak ada lagi duplikasi item |
+| 4 | `AUD-HIGH-03` | `app/api/applications/upload-parse` | **HIGH** | **Selesai** | Dibatasi secara ketat dengan whitelist direktori `data/` dan format `.pdf` |
+| 5 | `AUD-HIGH-04` | `app/api/applications/upload-parse` | **HIGH** | **Selesai** | Blok `try ... finally { fs.unlinkSync }` membersihkan berkas temp PDF & limit 15MB |
 | 6 | `AUD-MED-01` | `api/services/nlp_engine.py` | **MEDIUM** | Terbuka | Inkonsistensi status casing (`"Applied"` vs `"applied"`), merusak UI filter & form |
 | 7 | `AUD-MED-02` | `api/config.py` | **MEDIUM** | Terbuka | False-positive deteksi keahlian karakter tunggal (`"r"`, `"go"`) pada teks Indonesia |
 | 8 | `AUD-MED-03` | `app/api/applications/sync` | **MEDIUM** | Terbuka | 91 sekuensial HTTP fetch ke Appwrite Cloud memicu Serverless Gateway Timeout (HTTP 504) |

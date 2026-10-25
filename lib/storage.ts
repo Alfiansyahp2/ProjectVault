@@ -1806,7 +1806,12 @@ export async function getProjects(): Promise<Project[]> {
   const config = getAppwriteConfig();
   if (config.isEnabled) {
     const remote = await fetchProjectsFromAppwrite();
-    if (remote && remote.length > 0) return remote;
+    if (remote !== null) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(remote));
+      }
+      return remote;
+    }
   }
 
   // Local storage fallback
@@ -1826,6 +1831,7 @@ export async function getProjects(): Promise<Project[]> {
 }
 
 export async function saveProject(project: Project): Promise<Project> {
+  const originalId = project.id;
   const updatedProject = {
     ...project,
     id: project.id || `local_proj_${Date.now()}`,
@@ -1843,7 +1849,7 @@ export async function saveProject(project: Project): Promise<Project> {
   // Always update local storage as reliable local cache
   if (typeof window !== 'undefined') {
     const current = await getProjects();
-    const index = current.findIndex(p => p.id === updatedProject.id);
+    const index = current.findIndex(p => p.id === updatedProject.id || (originalId && p.id === originalId));
     if (index >= 0) {
       current[index] = updatedProject;
     } else {
@@ -1873,7 +1879,12 @@ export async function getApplications(): Promise<JobApplication[]> {
   const config = getAppwriteConfig();
   if (config.isEnabled) {
     const remote = await fetchApplicationsFromAppwrite();
-    if (remote && remote.length > 0) return remote;
+    if (remote !== null) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(remote));
+      }
+      return remote;
+    }
   }
 
   // Local storage fallback
@@ -1893,6 +1904,7 @@ export async function getApplications(): Promise<JobApplication[]> {
 }
 
 export async function saveApplication(appItem: JobApplication): Promise<JobApplication> {
+  const originalId = appItem.id;
   const updatedApp = {
     ...appItem,
     id: appItem.id || `local_app_${Date.now()}`,
@@ -1910,7 +1922,7 @@ export async function saveApplication(appItem: JobApplication): Promise<JobAppli
   // Update local storage
   if (typeof window !== 'undefined') {
     const current = await getApplications();
-    const index = current.findIndex(a => a.id === updatedApp.id);
+    const index = current.findIndex(a => a.id === updatedApp.id || (originalId && a.id === originalId));
     if (index >= 0) {
       current[index] = updatedApp;
     } else {
