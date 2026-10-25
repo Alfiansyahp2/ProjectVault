@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Project } from '@/lib/types';
 import { X, Plus, Trash2, Globe, Code2, FolderGit2 } from 'lucide-react';
 
@@ -12,6 +13,7 @@ interface ProjectModalProps {
 }
 
 export default function ProjectModal({ isOpen, onClose, onSave, initialData }: ProjectModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [title, setTitle] = useState('');
   const [role, setRole] = useState('');
   const [category, setCategory] = useState('Web Application');
@@ -22,6 +24,10 @@ export default function ProjectModal({ isOpen, onClose, onSave, initialData }: P
   const [repoUrl, setRepoUrl] = useState('');
   const [demoUrl, setDemoUrl] = useState('');
   const [date, setDate] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -84,35 +90,38 @@ export default function ProjectModal({ isOpen, onClose, onSave, initialData }: P
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
-      <div className="bg-[#0b1220] border border-white/[0.12] rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl shadow-indigo-500/10 my-8">
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#0b1220] border border-white/[0.12] rounded-3xl shadow-2xl shadow-indigo-500/10 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.08] bg-slate-900/40">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-inner">
+        {/* Header - ALWAYS FIXED AT TOP */}
+        <div className="shrink-0 flex items-center justify-between px-6 py-4.5 border-b border-white/[0.08] bg-slate-900/70 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shadow-inner shrink-0">
               <FolderGit2 className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-white tracking-tight">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-white tracking-tight truncate">
                 {initialData ? 'Edit Proyek Portofolio' : 'Tambah Proyek ke Bank Portofolio'}
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5 truncate">
                 Simpan data proyek sekali, gunakan berulang kali untuk lamaran & AI.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition shrink-0 ml-2"
             aria-label="Tutup modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+        {/* Scrollable Form Body */}
+        <form id="project-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 overscroll-contain">
           {/* Title & Role */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -280,24 +289,27 @@ export default function ProjectModal({ isOpen, onClose, onSave, initialData }: P
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/[0.08]">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white shadow-lg shadow-indigo-500/25 transition active:scale-95"
-            >
-              {initialData ? 'Simpan Perubahan' : 'Simpan ke Bank Portofolio'}
-            </button>
-          </div>
         </form>
+
+        {/* Footer - ALWAYS FIXED AT BOTTOM */}
+        <div className="shrink-0 px-6 py-4 border-t border-white/[0.08] bg-slate-900/70 backdrop-blur-md flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            form="project-modal-form"
+            className="px-5 py-2.5 text-xs sm:text-sm font-bold rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white shadow-lg shadow-indigo-500/25 transition active:scale-95 cursor-pointer"
+          >
+            {initialData ? 'Simpan Perubahan' : 'Simpan ke Bank Portofolio'}
+          </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
