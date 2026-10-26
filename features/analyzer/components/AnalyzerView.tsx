@@ -195,7 +195,7 @@ export const AnalyzerView: React.FC = () => {
     }
 
     const newApp: JobApplication = {
-      id: `app_${Date.now()}`,
+      id: `local_app_${Date.now()}`,
       company_name: finalCompany,
       job_title: finalTitle,
       status: 'applied',
