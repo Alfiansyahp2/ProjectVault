@@ -44,9 +44,13 @@ export interface AnalysisResult {
   job_title: string;
   company_name: string;
   overall_match_percentage: number;
+  match_tier?: string;
+  match_summary?: string;
   detected_skills: string[];
+  categorized_skills?: Record<string, string[]>;
   skill_gaps: string[];
   matched_projects: MatchedProject[];
+  interview_tips?: string[];
   cover_letter_draft: string;
   ai_prompt_context: string;
 }
