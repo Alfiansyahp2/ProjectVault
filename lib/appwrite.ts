@@ -257,17 +257,17 @@ export async function saveApplicationToAppwrite(appItem: JobApplication): Promis
     status: appItem.status || 'applied',
     applied_date: appItem.applied_date || new Date().toISOString().split('T')[0],
     source_portal: (appItem.source_portal || '').slice(0, 255),
-    summary: (appItem.summary || '').slice(0, 2000),
+    summary: (appItem.summary || '').trim().slice(0, 990),
     key_skills: Array.isArray(appItem.key_skills) ? appItem.key_skills : [],
-    file_path: (appItem.file_path || '').slice(0, 500),
-    salary_range: (appItem.salary_range || '').slice(0, 255),
-    notes: (appItem.notes || '').slice(0, 5000),
-    job_description: (appItem.job_description || '').slice(0, 5000),
-    cover_letter: (appItem.cover_letter || '').slice(0, 5000),
+    file_path: (appItem.file_path || '').trim().slice(0, 500),
+    salary_range: (appItem.salary_range || '').trim().slice(0, 255),
+    notes: (appItem.notes || '').trim().slice(0, 990),
+    job_description: (appItem.job_description || '').trim().slice(0, 990),
+    cover_letter: (appItem.cover_letter || '').trim().slice(0, 4900),
   };
 
   if (appItem.job_link && (appItem.job_link.startsWith('http://') || appItem.job_link.startsWith('https://'))) {
-    data.job_link = appItem.job_link.trim().slice(0, 1000);
+    data.job_link = appItem.job_link.trim().slice(0, 990);
   }
 
   try {
@@ -302,8 +302,8 @@ export async function saveApplicationToAppwrite(appItem: JobApplication): Promis
       );
       return doc.$id;
     }
-  } catch (err) {
-    console.error('Appwrite save application error:', err);
+  } catch (err: any) {
+    console.warn('[Appwrite] Save application fallback to local storage:', err?.message || err);
     return null;
   }
 }
