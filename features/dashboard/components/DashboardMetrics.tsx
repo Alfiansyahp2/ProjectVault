@@ -40,13 +40,14 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
             <span className="text-xs font-medium text-slate-400">portofolio</span>
           </div>
 
-          {totalTech !== undefined && (
+          {totalTech !== undefined && onOpenTechStackModal && (
             <button
               onClick={onOpenTechStackModal}
-              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/25 transition cursor-pointer"
+              className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
               title="Buka Modal Tech Stack & Ikon"
             >
-              {totalTech}+ Tech
+              <Cpu className="w-3 h-3 text-indigo-400" />
+              <span>{totalTech}+ Tech</span>
             </button>
           )}
         </div>
@@ -59,17 +60,7 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
             <span>Kelola Proyek</span>
             <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
           </Link>
-
-          {onOpenTechStackModal && (
-            <button
-              onClick={onOpenTechStackModal}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-indigo-300 transition cursor-pointer"
-              title="Lihat semua ikon dan teknologi dalam modal"
-            >
-              <Cpu className="w-3 h-3 text-indigo-400" />
-              <span>Modal Ikon</span>
-            </button>
-          )}
+          <span className="text-[11px] text-slate-500">Bukti nyata</span>
         </div>
       </div>
 
@@ -91,14 +82,15 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">perusahaan</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
           <Link 
             href="/applications" 
-            className="group/link inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
+            className="group/link inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
           >
             <span>Buka Kanban</span>
             <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
           </Link>
+          <span className="text-[11px] text-slate-500">Pelacak aktif</span>
         </div>
       </div>
 
@@ -120,8 +112,9 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">tahap proses</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
-          Fokus simulasi wawancara teknis
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-400">
+          <span>Simulasi Wawancara</span>
+          <span className="text-[11px] text-amber-400/80 font-medium">Prioritas</span>
         </div>
       </div>
 
@@ -143,8 +136,9 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">penawaran kerja</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
-          Target keberhasilan karir Anda
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-400">
+          <span>Target Karir</span>
+          <span className="text-[11px] text-emerald-400/80 font-medium">Goal Utama</span>
         </div>
       </div>
     </div>

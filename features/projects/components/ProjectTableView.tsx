@@ -95,23 +95,28 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
             <div className="lg:w-7/12 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-white/[0.08] pt-4 lg:pt-0 lg:pl-6 space-y-4">
               {/* Achievements */}
               {bullets.length > 0 && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-2">
+                <div className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Dampak Terukur &amp; Capaian Kunci</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                      {bullets.length} Capaian
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold">
+                      {bullets.length} Poin
                     </span>
                   </div>
-                  <div className="space-y-1.5">
-                    {bullets.map((b, idx) => (
+                  <div className="space-y-1">
+                    {bullets.slice(0, 2).map((b, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-xs text-emerald-200/90 leading-relaxed">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{b}</span>
+                        <span className="line-clamp-2">{b}</span>
                       </div>
                     ))}
+                    {bullets.length > 2 && (
+                      <span className="text-[10px] text-emerald-400/80 font-medium pl-5 block">
+                        +{bullets.length - 2} capaian lainnya
+                      </span>
+                    )}
                   </div>
                 </div>
               )}

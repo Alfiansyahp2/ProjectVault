@@ -58,74 +58,91 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
       </div>
 
       <div className="space-y-3.5">
-        {projects.slice(0, 3).map((proj) => (
-          <div
-            key={proj.id}
-            className="glass-card rounded-2xl p-5 border border-white/[0.08] hover:border-indigo-500/40 transition-all group"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors">
-                  {proj.title}
-                </h3>
-                <div className="flex items-center gap-2 mt-1 text-xs">
-                  <span className="font-semibold text-indigo-400">{proj.role}</span>
-                  <span className="text-slate-600">&bull;</span>
-                  <span className="text-slate-400">{proj.category}</span>
+        {projects.slice(0, 3).map((proj) => {
+          const bullets = (proj.achievements || '')
+            .split(/\n|•|\*/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const firstBullet = bullets[0] || proj.achievements;
+          const visibleTech = proj.technologies.slice(0, 4);
+          const remainingTech = proj.technologies.length - visibleTech.length;
+
+          return (
+            <div
+              key={proj.id}
+              className="glass-card rounded-2xl p-5 border border-white/[0.08] hover:border-indigo-500/40 transition-all group"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
+                    {proj.title}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1 text-xs">
+                    <span className="font-semibold text-indigo-400">{proj.role}</span>
+                    <span className="text-slate-600">&bull;</span>
+                    <span className="text-slate-400">{proj.category}</span>
+                  </div>
                 </div>
+
+                <button
+                  onClick={() => onCopySummary(proj)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/60 border border-white/[0.08] text-xs flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
+                  title="Salin ringkasan proyek untuk AI eksternal"
+                >
+                  {copiedId === proj.id ? (
+                    <span className="text-emerald-400 flex items-center gap-1 text-[11px] font-semibold">
+                      <Check className="w-3.5 h-3.5" /> Tersalin
+                    </span>
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
 
-              <button
-                onClick={() => onCopySummary(proj)}
-                className="p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700/60 border border-white/[0.08] text-xs flex items-center gap-1.5 transition-colors shrink-0 cursor-pointer"
-                title="Salin ringkasan proyek untuk AI eksternal"
-              >
-                {copiedId === proj.id ? (
-                  <span className="text-emerald-400 flex items-center gap-1 text-[11px] font-semibold">
-                    <Check className="w-3.5 h-3.5" /> Tersalin
-                  </span>
-                ) : (
-                  <Copy className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
+              <p className="text-xs text-slate-300/90 mt-2 line-clamp-2 leading-relaxed">
+                {proj.description}
+              </p>
 
-            <p className="text-xs text-slate-300 mt-2.5 line-clamp-2 leading-relaxed">
-              {proj.description}
-            </p>
-
-            {proj.achievements && (
-              <div className="mt-3 flex items-start gap-2 bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-300 text-xs px-3 py-2 rounded-xl">
-                <span className="text-emerald-400 text-sm leading-none shrink-0 mt-0.5">★</span>
-                <span className="leading-snug text-[11px] font-medium">{proj.achievements}</span>
-              </div>
-            )}
-
-            {/* Tech Stack Pills with Icons */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-3.5 pt-3 border-t border-white/[0.06]">
-              {proj.technologies.slice(0, 5).map((t, i) => (
-                <button
-                  key={i}
-                  onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
-                  title={`Klik untuk melihat detail tech stack ${t} dalam modal`}
-                >
-                  <TechIcon name={t} size="xs" showBackground={false} />
-                  <span>{t}</span>
-                </button>
-              ))}
-              {proj.technologies.length > 5 && (
-                <button
-                  onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
-                  className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
-                  title="Buka modal semua teknologi proyek ini"
-                >
-                  +{proj.technologies.length - 5} lainnya &bull; Modal
-                </button>
+              {firstBullet && (
+                <div className="mt-2.5 flex items-center justify-between gap-2 bg-emerald-500/[0.07] border border-emerald-500/20 text-emerald-300 text-xs px-3 py-1.5 rounded-xl">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-emerald-400 text-xs shrink-0">★</span>
+                    <span className="leading-snug text-[11px] font-medium truncate">{firstBullet}</span>
+                  </div>
+                  {bullets.length > 1 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 shrink-0 font-semibold">
+                      +{bullets.length - 1} capaian
+                    </span>
+                  )}
+                </div>
               )}
+
+              {/* Tech Stack Pills with Icons */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-white/[0.06]">
+                {visibleTech.map((t, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
+                    title={`Klik untuk melihat detail tech stack ${t} dalam modal`}
+                  >
+                    <TechIcon name={t} size="xs" showBackground={false} />
+                    <span>{t}</span>
+                  </button>
+                ))}
+                {remainingTech > 0 && (
+                  <button
+                    onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
+                    className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
+                    title="Buka modal semua teknologi proyek ini"
+                  >
+                    +{remainingTech} lainnya
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {projects.length === 0 && (
           <div className="text-center py-12 glass-panel rounded-2xl border border-dashed border-white/10 p-6">

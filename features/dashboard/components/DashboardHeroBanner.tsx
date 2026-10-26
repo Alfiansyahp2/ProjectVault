@@ -36,33 +36,33 @@ export const DashboardHeroBanner: React.FC<DashboardHeroBannerProps> = ({
           </p>
         </div>
 
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
-          {onOpenTechModal && (
-            <button
-              onClick={onOpenTechModal}
-              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] text-slate-200 text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-md cursor-pointer"
-              title="Lihat seluruh tech stack dan ikon portofolio dalam modal"
-            >
-              <Cpu className="w-4 h-4 text-indigo-400" />
-              <span>Ekosistem Tech Stack</span>
-            </button>
-          )}
-
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             onClick={onOpenAiModal}
-            className="flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            className="flex items-center justify-center gap-2 px-4.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
             <BrainCircuit className="w-4 h-4 text-white" />
-            <span>Salin Konteks untuk AI</span>
+            <span>Salin Konteks AI</span>
           </button>
 
           <Link
             href="/analyzer"
-            className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] text-slate-100 text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-md cursor-pointer"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] text-slate-100 text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-md cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-indigo-400" />
             <span>Analisis Lowongan</span>
           </Link>
+
+          {onOpenTechModal && (
+            <button
+              onClick={onOpenTechModal}
+              className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/25 text-indigo-300 text-xs sm:text-sm font-medium transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              title="Lihat seluruh tech stack dan ikon portofolio dalam modal"
+            >
+              <Cpu className="w-4 h-4 text-indigo-400" />
+              <span>Tech Stack</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
