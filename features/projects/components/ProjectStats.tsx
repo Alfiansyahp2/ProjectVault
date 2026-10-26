@@ -6,7 +6,8 @@ import {
   RefreshCw, 
   Sparkles, 
   BrainCircuit, 
-  Plus 
+  Plus,
+  Cpu
 } from 'lucide-react';
 
 interface ProjectStatsProps {
@@ -19,6 +20,7 @@ interface ProjectStatsProps {
   onSync: () => void;
   onOpenAiPrompt: () => void;
   onAddProject: () => void;
+  onOpenTechModal?: () => void;
 }
 
 export const ProjectStats: React.FC<ProjectStatsProps> = ({
@@ -31,6 +33,7 @@ export const ProjectStats: React.FC<ProjectStatsProps> = ({
   onSync,
   onOpenAiPrompt,
   onAddProject,
+  onOpenTechModal,
 }) => {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-white/[0.08] pb-6">
@@ -60,10 +63,16 @@ export const ProjectStats: React.FC<ProjectStatsProps> = ({
             <FolderGit2 className="w-3.5 h-3.5 text-indigo-400" />
             <span><strong>{totalProjects}</strong> Proyek Unggulan</span>
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-            <Layers className="w-3.5 h-3.5 text-sky-400" />
+          <button
+            type="button"
+            onClick={onOpenTechModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-sky-500/15 border border-white/[0.06] hover:border-sky-500/30 text-slate-300 hover:text-sky-300 transition cursor-pointer group"
+            title="Klik untuk membuka modal katalog semua tech stack dan ikon"
+          >
+            <Layers className="w-3.5 h-3.5 text-sky-400 group-hover:scale-110 transition-transform" />
             <span><strong>{totalTech}+</strong> Tech Stacks</span>
-          </div>
+            <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-300 font-semibold">Modal</span>
+          </button>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
             <span><strong>{totalAchievements}</strong> Capaian Terukur</span>
@@ -80,6 +89,17 @@ export const ProjectStats: React.FC<ProjectStatsProps> = ({
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
         </button>
+
+        {onOpenTechModal && (
+          <button
+            onClick={onOpenTechModal}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 shadow-sm shadow-indigo-500/10 transition cursor-pointer"
+            title="Buka modal interaktif seluruh tech stack dan ikon"
+          >
+            <Cpu className="w-4 h-4 text-indigo-400" />
+            <span>Tech Stack &amp; Ikon</span>
+          </button>
+        )}
 
         <button
           onClick={onSync}

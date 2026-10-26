@@ -18,8 +18,10 @@ import {
   Layers,
   Award,
   CheckCircle2,
-  FileText
+  FileText,
+  Cpu
 } from 'lucide-react';
+import { TechIcon } from '@/components/tech-stack/TechIcon';
 
 interface ProjectDetailModalProps {
   isOpen: boolean;
@@ -27,6 +29,7 @@ interface ProjectDetailModalProps {
   onClose: () => void;
   onEdit: (project: Project) => void;
   onDelete: (id: string, title: string) => void;
+  onOpenTechModal?: (project: Project) => void;
 }
 
 export default function ProjectDetailModal({
@@ -35,6 +38,7 @@ export default function ProjectDetailModal({
   onClose,
   onEdit,
   onDelete,
+  onOpenTechModal,
 }: ProjectDetailModalProps) {
   const [mounted, setMounted] = useState(false);
   const [copiedContext, setCopiedContext] = useState(false);
@@ -224,19 +228,36 @@ export default function ProjectDetailModal({
 
           {/* Technologies Stack */}
           {project.technologies && project.technologies.length > 0 && (
-            <div className="space-y-2.5">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Teknologi &amp; Tech Stack ({project.technologies.length})</span>
-              </h4>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Teknologi &amp; Tech Stack ({project.technologies.length})</span>
+                </h4>
+
+                {onOpenTechModal && (
+                  <button
+                    onClick={() => onOpenTechModal(project)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
+                  >
+                    <Cpu className="w-3.5 h-3.5" />
+                    <span>Buka di Modal Stack</span>
+                  </button>
+                )}
+              </div>
+
               <div className="flex flex-wrap gap-2">
                 {project.technologies.map((t, idx) => (
-                  <span
+                  <button
                     key={idx}
-                    className="px-3 py-1 rounded-xl text-xs font-medium bg-slate-800/80 border border-white/[0.1] text-slate-200 shadow-sm"
+                    type="button"
+                    onClick={() => onOpenTechModal && onOpenTechModal(project)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.1] hover:border-indigo-500/40 text-slate-200 shadow-sm transition cursor-pointer"
+                    title={`Lihat detail ${t} di modal`}
                   >
-                    {t}
-                  </span>
+                    <TechIcon name={t} size="xs" showBackground={false} />
+                    <span>{t}</span>
+                  </button>
                 ))}
               </div>
             </div>

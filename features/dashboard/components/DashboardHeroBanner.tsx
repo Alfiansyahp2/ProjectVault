@@ -1,16 +1,18 @@
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, BrainCircuit } from 'lucide-react';
+import { Sparkles, BrainCircuit, Cpu } from 'lucide-react';
 import { UserProfile } from '@/lib/types';
 
 interface DashboardHeroBannerProps {
   profile: UserProfile;
   onOpenAiModal: () => void;
+  onOpenTechModal?: () => void;
 }
 
 export const DashboardHeroBanner: React.FC<DashboardHeroBannerProps> = ({
   profile,
   onOpenAiModal,
+  onOpenTechModal,
 }) => {
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/[0.1] bg-gradient-to-br from-indigo-950/70 via-slate-900/90 to-[#090d16] p-7 sm:p-10 shadow-2xl backdrop-blur-2xl">
@@ -35,6 +37,17 @@ export const DashboardHeroBanner: React.FC<DashboardHeroBannerProps> = ({
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
+          {onOpenTechModal && (
+            <button
+              onClick={onOpenTechModal}
+              className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.12] text-slate-200 text-xs sm:text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] backdrop-blur-md cursor-pointer"
+              title="Lihat seluruh tech stack dan ikon portofolio dalam modal"
+            >
+              <Cpu className="w-4 h-4 text-indigo-400" />
+              <span>Ekosistem Tech Stack</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenAiModal}
             className="flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-600 hover:to-sky-600 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"

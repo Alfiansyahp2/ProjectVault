@@ -1,12 +1,14 @@
 import React from 'react';
 import Link from 'next/link';
-import { FolderGit2, Briefcase, Clock, Trophy, ArrowRight } from 'lucide-react';
+import { FolderGit2, Briefcase, Clock, Trophy, ArrowRight, Cpu } from 'lucide-react';
 
 interface DashboardMetricsProps {
   totalProjects: number;
   totalApplications: number;
   interviewCount: number;
   offerCount: number;
+  totalTech?: number;
+  onOpenTechStackModal?: () => void;
 }
 
 export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
@@ -14,6 +16,8 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
   totalApplications,
   interviewCount,
   offerCount,
+  totalTech,
+  onOpenTechStackModal,
 }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -28,21 +32,44 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           </div>
         </div>
 
-        <div className="mt-4 flex items-baseline gap-2">
-          <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            {totalProjects}
-          </span>
-          <span className="text-xs font-medium text-slate-400">portofolio</span>
+        <div className="mt-4 flex items-baseline justify-between">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              {totalProjects}
+            </span>
+            <span className="text-xs font-medium text-slate-400">portofolio</span>
+          </div>
+
+          {totalTech !== undefined && (
+            <button
+              onClick={onOpenTechStackModal}
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/25 transition cursor-pointer"
+              title="Buka Modal Tech Stack & Ikon"
+            >
+              {totalTech}+ Tech
+            </button>
+          )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
           <Link 
             href="/projects" 
-            className="group/link inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+            className="group/link inline-flex items-center gap-1 font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
           >
             <span>Kelola Proyek</span>
             <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
           </Link>
+
+          {onOpenTechStackModal && (
+            <button
+              onClick={onOpenTechStackModal}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-indigo-300 transition cursor-pointer"
+              title="Lihat semua ikon dan teknologi dalam modal"
+            >
+              <Cpu className="w-3 h-3 text-indigo-400" />
+              <span>Modal Ikon</span>
+            </button>
+          )}
         </div>
       </div>
 

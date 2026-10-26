@@ -1,13 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
-import { FolderGit2, Plus, ArrowRight, Copy, Check } from 'lucide-react';
+import { FolderGit2, Plus, ArrowRight, Copy, Check, Cpu } from 'lucide-react';
 import { Project } from '@/lib/types';
+import { TechIcon } from '@/components/tech-stack/TechIcon';
 
 interface RecentProjectsCardProps {
   projects: Project[];
   copiedId: string | null;
   onCopySummary: (p: Project) => void;
   onAddProject: () => void;
+  onOpenTechStackModal?: (project?: Project) => void;
 }
 
 export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
@@ -15,10 +17,11 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
   copiedId,
   onCopySummary,
   onAddProject,
+  onOpenTechStackModal,
 }) => {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between pb-1">
+      <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             <FolderGit2 className="w-4 h-4" />
@@ -31,13 +34,27 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={onAddProject}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Tambah Proyek</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenTechStackModal && (
+            <button
+              onClick={() => onOpenTechStackModal()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/[0.05] hover:bg-white/[0.1] text-indigo-300 border border-white/[0.08] hover:border-indigo-500/30 transition cursor-pointer"
+              title="Lihat semua tech stack dan ikon di ekosistem proyek"
+            >
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Eksplor Tech Stack</span>
+              <span className="sm:hidden">Tech Stack</span>
+            </button>
+          )}
+
+          <button
+            onClick={onAddProject}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Tambah</span>
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3.5">
@@ -84,19 +101,27 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
               </div>
             )}
 
-            <div className="flex flex-wrap gap-1.5 mt-3.5 pt-3 border-t border-white/[0.06]">
+            {/* Tech Stack Pills with Icons */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-3.5 pt-3 border-t border-white/[0.06]">
               {proj.technologies.slice(0, 5).map((t, i) => (
-                <span
+                <button
                   key={i}
-                  className="px-2.5 py-0.5 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+                  onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
+                  title={`Klik untuk melihat detail tech stack ${t} dalam modal`}
                 >
-                  {t}
-                </span>
+                  <TechIcon name={t} size="xs" showBackground={false} />
+                  <span>{t}</span>
+                </button>
               ))}
               {proj.technologies.length > 5 && (
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-white/[0.05] text-slate-400 border border-white/[0.05]">
-                  +{proj.technologies.length - 5}
-                </span>
+                <button
+                  onClick={() => onOpenTechStackModal && onOpenTechStackModal(proj)}
+                  className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
+                  title="Buka modal semua teknologi proyek ini"
+                >
+                  +{proj.technologies.length - 5} lainnya &bull; Modal
+                </button>
               )}
             </div>
           </div>
@@ -115,10 +140,20 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
           </div>
         )}
 
-        <div className="pt-1 text-right">
+        <div className="pt-1 flex items-center justify-between text-xs">
+          {onOpenTechStackModal ? (
+            <button
+              onClick={() => onOpenTechStackModal()}
+              className="inline-flex items-center gap-1 text-slate-400 hover:text-indigo-300 transition cursor-pointer font-medium"
+            >
+              <Cpu className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Modal Tech Stack &amp; Ikon</span>
+            </button>
+          ) : <div />}
+
           <Link 
             href="/projects" 
-            className="group inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
+            className="group inline-flex items-center gap-1.5 font-bold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
           >
             <span>Lihat Seluruh {projects.length} Proyek</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
@@ -128,3 +163,4 @@ export const RecentProjectsCard: React.FC<RecentProjectsCardProps> = ({
     </div>
   );
 };
+

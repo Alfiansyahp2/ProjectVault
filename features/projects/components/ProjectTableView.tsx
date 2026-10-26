@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ProjectTableViewProps } from '../types';
 import { getCategoryBadge, parseAchievements } from '../utils';
+import { TechIcon } from '@/components/tech-stack/TechIcon';
 
 export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   projects,
@@ -22,6 +23,7 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   onDelete,
   copiedId,
   onCopy,
+  onOpenTechModal,
 }) => {
   return (
     <div className="space-y-4">
@@ -116,15 +118,29 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
 
               {/* Tech stack & Actions */}
               <div className="space-y-3 pt-2">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
                   {proj.technologies.map((t, i) => (
-                    <span
+                    <button
                       key={i}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+                      type="button"
+                      onClick={() => onOpenTechModal && onOpenTechModal(proj)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
+                      title={`Klik untuk melihat detail teknologi ${t} di modal`}
                     >
-                      {t}
-                    </span>
+                      <TechIcon name={t} size="xs" showBackground={false} />
+                      <span>{t}</span>
+                    </button>
                   ))}
+                  {proj.technologies.length > 0 && onOpenTechModal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenTechModal(proj)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 transition cursor-pointer"
+                      title="Buka modal tech stack lengkap proyek ini"
+                    >
+                      Buka Modal Stack
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between pt-2" onClick={e => e.stopPropagation()}>

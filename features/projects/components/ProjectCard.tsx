@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ProjectCardProps } from '../types';
 import { getCategoryBadge, parseAchievements } from '../utils';
+import { TechIcon } from '@/components/tech-stack/TechIcon';
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({
   project,
@@ -22,6 +23,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   onDelete,
   copiedId,
   onCopy,
+  onOpenTechModal,
 }) => {
   const bullets = parseAchievements(project.achievements);
   const visibleBullets = bullets.slice(0, 2);
@@ -127,20 +129,29 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
       {/* Card Footer: Technologies & External Links */}
       <div className="mt-4 pt-3.5 border-t border-white/[0.06]">
-        {/* Tech Tags */}
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        {/* Tech Tags with TechIcon */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-3" onClick={e => e.stopPropagation()}>
           {visibleTech.map((t, i) => (
-            <span
+            <button
               key={i}
-              className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+              type="button"
+              onClick={() => onOpenTechModal && onOpenTechModal(project)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
+              title={`Klik untuk melihat detail teknologi ${t} di modal`}
             >
-              {t}
-            </span>
+              <TechIcon name={t} size="xs" showBackground={false} />
+              <span>{t}</span>
+            </button>
           ))}
           {remainingTech > 0 && (
-            <span className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-indigo-500/15 border border-indigo-500/30 text-indigo-300">
-              +{remainingTech} lainnya
-            </span>
+            <button
+              type="button"
+              onClick={() => onOpenTechModal && onOpenTechModal(project)}
+              className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 transition cursor-pointer"
+              title="Buka modal tech stack lengkap proyek ini"
+            >
+              +{remainingTech} lainnya &bull; Modal
+            </button>
           )}
         </div>
 
