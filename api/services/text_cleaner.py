@@ -24,7 +24,9 @@ def is_generic_or_screenshot_hint(name: str) -> bool:
     generic_words = {
         "teks salinan", "pasted text", "teks mentah", "teks masukan",
         "cli text input", "screenshot", "tangkapan layar", "image",
-        "gambar", "virtual", "unknown", "document", "dokumen"
+        "gambar", "virtual", "unknown", "document", "dokumen",
+        "surat lamaran", "surat_lamaran", "surat-lamaran",
+        "cover letter", "cover_letter", "cover-letter"
     }
     if name_lower in generic_words or name_lower.startswith(('virtual/', 'gambar:')):
         return True
