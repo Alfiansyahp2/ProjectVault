@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={jakarta.variable} suppressHydrationWarning>
+    <html lang="id" className={`${jakarta.variable} dark`} suppressHydrationWarning>
       <body suppressHydrationWarning className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
         <div className="ambient-glow" aria-hidden="true" />
         <Navbar />
