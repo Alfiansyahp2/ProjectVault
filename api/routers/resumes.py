@@ -7,8 +7,12 @@ from pydantic import BaseModel
 from ..models.resume import ParseSinglePdfRequest, ExportResumesRequest, ParseRawTextRequest
 from ..services.nlp_engine import parse_pdf_document, scan_all_resumes, parse_raw_text
 from ..services.ml_parser import get_model_status, reload_models
-from ..ml.trainer import train_all_models, FEEDBACK_DATA_PATH
+from ..ml.trainer import train_all_models
 from ..ml.learning_log import record_parse_event, get_learning_logs
+try:
+    from ..config import FEEDBACK_DATA_PATH, PARSED_APPLICATIONS_PATH, atomic_write_json
+except ImportError:
+    from api.config import FEEDBACK_DATA_PATH, PARSED_APPLICATIONS_PATH, atomic_write_json
 
 router = APIRouter(prefix="/api/py/resumes", tags=["Local Document Intelligence & Resumes"])
 
@@ -38,10 +42,8 @@ def scan_resumes(base_dir: str = "data"):
 def export_resumes(payload: ExportResumesRequest):
     """Parse all resume PDFs and export to data/parsed_applications.json."""
     applications = scan_all_resumes(payload.base_dir or "data")
-    out_path = payload.output_path or "data/parsed_applications.json"
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(applications, f, indent=2, ensure_ascii=False)
+    out_path = payload.output_path or PARSED_APPLICATIONS_PATH
+    atomic_write_json(out_path, applications)
     return {
         "status": "success",
         "message": f"Successfully parsed and exported {len(applications)} applications",
@@ -117,27 +119,29 @@ def submit_feedback_correction(payload: FeedbackCorrectionRequest):
             source="user_correction"
         )
 
-        # 2. Also append to legacy feedback file
-        os.makedirs(os.path.dirname(FEEDBACK_DATA_PATH), exist_ok=True)
+        # 2. Also append to legacy feedback file if valid text present
+        raw_cov = (payload.cover_letter or "").strip()[:8000]
         items = []
-        if os.path.exists(FEEDBACK_DATA_PATH):
+        if raw_cov and os.path.exists(FEEDBACK_DATA_PATH):
             try:
                 with open(FEEDBACK_DATA_PATH, "r", encoding="utf-8") as f:
                     items = json.load(f)
             except Exception:
                 items = []
 
-        new_sample = {
-            "cover_letter": payload.cover_letter,
-            "company_name": payload.company_name,
-            "job_title": payload.job_title,
-            "source_portal": payload.source_portal,
-            "key_skills": payload.key_skills or [],
-            "file_name": payload.file_name or "user_correction"
-        }
-        items.append(new_sample)
-        with open(FEEDBACK_DATA_PATH, "w", encoding="utf-8") as f:
-            json.dump(items, f, indent=2, ensure_ascii=False)
+        if raw_cov:
+            new_sample = {
+                "cover_letter": raw_cov,
+                "company_name": payload.company_name.strip(),
+                "job_title": payload.job_title.strip(),
+                "source_portal": payload.source_portal,
+                "key_skills": payload.key_skills or [],
+                "file_name": payload.file_name or "user_correction"
+            }
+            items.append(new_sample)
+            if len(items) > 1000:
+                items = items[-1000:]
+            atomic_write_json(FEEDBACK_DATA_PATH, items)
 
         return {
             "status": "success",

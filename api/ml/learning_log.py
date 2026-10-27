@@ -4,7 +4,10 @@ import hashlib
 import datetime
 from typing import Dict, Any, List, Optional
 
-LEARNING_LOG_PATH = "data/parser_learning_log.json"
+try:
+    from ..config import LEARNING_LOG_PATH, atomic_write_json
+except ImportError:
+    from api.config import LEARNING_LOG_PATH, atomic_write_json
 
 def compute_text_hash(text: str) -> str:
     """Generate a short hash for deduplicating parsed texts."""
@@ -43,15 +46,13 @@ def record_parse_event(
         "location": result.get("location"),
         "salary_range": result.get("salary_range"),
         "job_type": result.get("job_type"),
-        "cover_letter": raw_text.strip(),
+        "cover_letter": raw_text.strip()[:8000],
         "is_verified": is_verified,
         "source": source,
         "ml_meta": result.get("ml_meta", {})
     }
 
-    os.makedirs(os.path.dirname(LEARNING_LOG_PATH), exist_ok=True)
     existing_logs: List[Dict[str, Any]] = []
-
     if os.path.exists(LEARNING_LOG_PATH):
         try:
             with open(LEARNING_LOG_PATH, "r", encoding="utf-8") as f:
@@ -77,8 +78,7 @@ def record_parse_event(
         existing_logs = existing_logs[-1000:]
 
     try:
-        with open(LEARNING_LOG_PATH, "w", encoding="utf-8") as f:
-            json.dump(existing_logs, f, indent=2, ensure_ascii=False)
+        atomic_write_json(LEARNING_LOG_PATH, existing_logs)
     except Exception as e:
         print(f"Warning: Failed to save parser learning log: {e}")
 

@@ -3,10 +3,17 @@ import re
 import sys
 import json
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # Ensure project root is in sys.path for direct CLI execution
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
+
+from api.config import PARSED_APPLICATIONS_PATH, atomic_write_json
 
 try:
     from api.services.nlp_engine import parse_pdf_document
@@ -46,7 +53,7 @@ def get_all_pdf_files():
     return all_files
 
 def main():
-    json_path = os.path.join("data", "parsed_applications.json")
+    json_path = PARSED_APPLICATIONS_PATH
     all_files = get_all_pdf_files()
 
     parsed = []
@@ -93,8 +100,7 @@ def main():
             except Exception:
                 pass
         reset_items.sort(key=lambda x: x["applied_date"], reverse=True)
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(reset_items, f, indent=2, ensure_ascii=False)
+        atomic_write_json(json_path, reset_items)
         out = {
             "success": True,
             "message": f"Reset antrean ke {len(reset_items)} berkas awal.",
@@ -158,9 +164,7 @@ def main():
             deduped.append(it)
 
     deduped.sort(key=lambda x: x["applied_date"], reverse=True)
-
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(deduped, f, indent=2, ensure_ascii=False)
+    atomic_write_json(json_path, deduped)
 
     remaining_unparsed = len(all_files) - len(deduped)
 
