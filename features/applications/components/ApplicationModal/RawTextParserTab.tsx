@@ -2,14 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  ClipboardPaste, 
-  RotateCcw, 
-  Sparkles, 
-  RefreshCw, 
-  AlignLeft, 
-  Plus, 
-  Image as ImageIcon, 
-  FolderOpen 
+  ClipboardPaste, RotateCcw, Sparkles, RefreshCw, AlignLeft, 
+  Plus, Image as ImageIcon, FolderOpen, Laptop 
 } from 'lucide-react';
 import { LocalFilePickerModal } from '@/features/analyzer/components/LocalFilePickerModal';
 import { useJobInputOcr } from '@/features/analyzer/hooks/use-job-input-ocr';
@@ -18,6 +12,12 @@ interface RawTextParserTabProps {
   isParsing: boolean;
   onRawTextParse: (text: string, sourceHint?: string) => void;
 }
+
+const MENU_OPTIONS = [
+  { id: 'image' as const, icon: ImageIcon, title: 'Tambah Gambar', desc: 'Ekstrak teks gambar (OCR)', color: 'text-sky-400', hover: 'hover:bg-sky-500/15' },
+  { id: 'doc' as const, icon: Laptop, title: 'Buka Berkas Komputer', desc: 'Pilih PDF / teks dari PC', color: 'text-emerald-400', hover: 'hover:bg-emerald-500/15' },
+  { id: 'local' as const, icon: FolderOpen, title: 'Tambah dari Lokal', desc: 'Pilih dari data/resume', color: 'text-indigo-400', hover: 'hover:bg-indigo-500/15' },
+];
 
 export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
   isParsing,
@@ -29,12 +29,14 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const {
     ocrLoading,
     ocrStatus,
     handleImageOcr,
     handleLoadLocalFile,
+    handleUploadDocument,
   } = useJobInputOcr({
     onInsertText: text => setRawText(prev => prev ? `${prev}\n\n${text}` : text),
   });
@@ -49,19 +51,20 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleMenuItemClick = (id: 'image' | 'doc' | 'local') => {
+    setIsMenuOpen(false);
+    if (id === 'image') fileInputRef.current?.click();
+    else if (id === 'doc') docInputRef.current?.click();
+    else if (id === 'local') setIsLocalModalOpen(true);
+  };
+
   const handlePasteClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (text) {
-        setRawText(text);
-      }
+      if (text) setRawText(text);
     } catch {
       // Ignore clipboard permission errors silently
     }
-  };
-
-  const handleClear = () => {
-    setRawText('');
   };
 
   const wordCount = rawText.trim() ? rawText.trim().split(/\s+/).length : 0;
@@ -75,75 +78,80 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
         accept="image/png,image/jpeg,image/webp,image/jpg"
         className="hidden"
         onChange={e => {
-          if (e.target.files && e.target.files.length > 0) {
+          if (e.target.files?.[0]) {
             setIsMenuOpen(false);
             handleImageOcr(e.target.files[0]);
           }
         }}
       />
 
+      <input
+        ref={docInputRef}
+        type="file"
+        accept=".pdf,.txt,.md,.doc,.docx"
+        className="hidden"
+        onChange={e => {
+          if (e.target.files?.[0]) {
+            setIsMenuOpen(false);
+            handleUploadDocument(e.target.files[0]);
+          }
+        }}
+      />
+
       {/* Header action bar */}
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
-          <AlignLeft className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider shrink-0 whitespace-nowrap">
+          <AlignLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>Salin / Tempel Teks Panjang</span>
         </span>
 
-        <div className="flex items-center gap-1.5" ref={menuRef}>
-          {ocrLoading && (
-            <span className="text-[10px] text-sky-400 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 animate-spin" />
+        <div className="relative flex items-center gap-1.5 shrink-0" ref={menuRef}>
+          {ocrLoading && ocrStatus && !isMenuOpen && (
+            <div className="absolute right-0 top-full mt-1.5 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0b1220]/95 border border-sky-500/40 text-sky-300 text-[10px] shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 whitespace-nowrap">
+              <RefreshCw className="w-3 h-3 animate-spin text-sky-400 shrink-0" />
               <span>{ocrStatus}</span>
-            </span>
+            </div>
           )}
 
           {/* Icon + (Plus Button) */}
           <div className="relative">
             <button
               type="button"
+              disabled={ocrLoading}
               onClick={() => setIsMenuOpen(prev => !prev)}
               title="Tambah gambar atau dari lokal"
-              className={`flex items-center gap-1 px-1.5 py-1 text-[11px] rounded-lg border transition cursor-pointer ${
-                isMenuOpen 
-                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' 
-                  : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border-white/10'
+              aria-label="Tambah gambar atau dari lokal"
+              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                ocrLoading
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 cursor-wait'
+                  : isMenuOpen 
+                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' 
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border-white/10'
               }`}
             >
-              <Plus className={`w-3 h-3 transition-transform ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
-              <span className="hidden sm:inline text-[10px]">Tambah</span>
+              {ocrLoading ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              ) : (
+                <Plus className={`w-3.5 h-3.5 transition-transform ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
+              )}
             </button>
 
             {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#0b1220]/95 backdrop-blur-md border border-white/10 rounded-xl p-1 shadow-2xl z-30 animate-in fade-in space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    fileInputRef.current?.click();
-                  }}
-                  className="w-full p-2 rounded-lg text-left hover:bg-sky-500/15 text-slate-200 hover:text-white transition flex items-center gap-2 group cursor-pointer text-xs"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-xs leading-tight">Tambah Gambar</p>
-                    <p className="text-[10px] text-slate-400">Ekstrak teks gambar (OCR)</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    setIsLocalModalOpen(true);
-                  }}
-                  className="w-full p-2 rounded-lg text-left hover:bg-indigo-500/15 text-slate-200 hover:text-white transition flex items-center gap-2 group cursor-pointer text-xs"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <div>
-                    <p className="font-semibold text-xs leading-tight">Tambah dari Lokal</p>
-                    <p className="text-[10px] text-slate-400">Pilih dari data/resume</p>
-                  </div>
-                </button>
+              <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#0b1220]/95 backdrop-blur-md border border-white/10 rounded-xl p-1 shadow-2xl z-30 animate-in fade-in space-y-0.5">
+                {MENU_OPTIONS.map(item => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleMenuItemClick(item.id)}
+                    className={`w-full p-2 rounded-lg text-left ${item.hover} text-slate-200 hover:text-white transition flex items-center gap-2 group cursor-pointer text-xs`}
+                  >
+                    <item.icon className={`w-3.5 h-3.5 ${item.color} shrink-0`} />
+                    <div>
+                      <p className="font-semibold text-xs leading-tight">{item.title}</p>
+                      <p className="text-[10px] text-slate-400">{item.desc}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -151,20 +159,22 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
           <button
             type="button"
             onClick={handlePasteClipboard}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-sky-400 transition cursor-pointer"
+            title="Tempel teks dari Clipboard"
+            aria-label="Tempel teks dari Clipboard"
+            className="p-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-sky-400 transition cursor-pointer flex items-center justify-center"
           >
-            <ClipboardPaste className="w-3 h-3" />
-            <span>Tempel</span>
+            <ClipboardPaste className="w-3.5 h-3.5" />
           </button>
 
           {rawText && (
             <button
               type="button"
-              onClick={handleClear}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg text-slate-400 hover:text-rose-400 transition cursor-pointer"
+              onClick={() => setRawText('')}
+              title="Bersihkan isi form"
+              aria-label="Bersihkan isi form"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 transition cursor-pointer flex items-center justify-center"
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>Bersihkan</span>
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
