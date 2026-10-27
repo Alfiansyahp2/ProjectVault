@@ -9,6 +9,9 @@ class ResumeItem(BaseModel):
     applied_date: str
     source_portal: str
     key_skills: List[str] = Field(default_factory=list)
+    location: Optional[str] = None
+    salary_range: Optional[str] = None
+    job_type: Optional[str] = None
     status: Optional[str] = "applied"
     cover_letter_preview: Optional[str] = ""
     cover_letter: Optional[str] = ""

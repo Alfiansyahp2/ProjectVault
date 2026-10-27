@@ -45,7 +45,10 @@ async function parseRawTextWithPython(text: string, cwd: string, hint: string = 
   const tempTxt = path.join(uploadDir, `tmp_${Date.now()}.txt`);
   fs.writeFileSync(tempTxt, text, 'utf-8');
   try {
-    const pythonCmd = `python -c "import sys, json; from api.services.nlp_engine import parse_raw_text; f=open(r'${tempTxt.replace(/\\/g, '/')}', encoding='utf-8'); print(json.dumps(parse_raw_text(f.read(), '${hint}'), ensure_ascii=False))"`;
+    const scriptPath = path.join(cwd, 'api', 'parse_single.py').replace(/\\/g, '/');
+    const safeTxt = tempTxt.replace(/\\/g, '/');
+    const safeHint = hint.replace(/"/g, '\\"');
+    const pythonCmd = `python "${scriptPath}" --file-text "${safeTxt}" "${safeHint}"`;
     const { stdout, stderr } = await execPromise(pythonCmd, { cwd });
     if (!stdout && stderr) throw new Error(stderr);
     return JSON.parse(stdout.trim());
