@@ -26,6 +26,7 @@ export interface ProjectCardProps {
   onDelete: (id: string, title: string, e: React.MouseEvent) => void;
   copiedId: string | null;
   onCopy: (p: Project, e: React.MouseEvent) => void;
+  onOpenTechModal?: (p: Project) => void;
 }
 
 export interface ProjectGridProps {
@@ -35,6 +36,7 @@ export interface ProjectGridProps {
   onDelete: (id: string, title: string, e: React.MouseEvent) => void;
   copiedId: string | null;
   onCopy: (p: Project, e: React.MouseEvent) => void;
+  onOpenTechModal?: (p: Project) => void;
 }
 
 export interface ProjectTableViewProps {
@@ -44,4 +46,6 @@ export interface ProjectTableViewProps {
   onDelete: (id: string, title: string, e: React.MouseEvent) => void;
   copiedId: string | null;
   onCopy: (p: Project, e: React.MouseEvent) => void;
+  onOpenTechModal?: (p: Project) => void;
 }
+

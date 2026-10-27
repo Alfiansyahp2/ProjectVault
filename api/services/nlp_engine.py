@@ -54,14 +54,26 @@ def clean_company_name(name: str, applicant_name: Optional[str] = None) -> str:
 
 def extract_company(text: str, filename: str) -> str:
     """Multi-strategy entity recognition for company name."""
-    # 1. From filename (standard in structured project directories)
+    # 1. From filename (if not a generic placeholder/virtual hint)
     base = os.path.splitext(os.path.basename(filename))[0]
     fn_clean = re.sub(r'^(?:surat\s*lamaran\s*[-_]?\s*|cover\s*letter\s*[-_]?\s*)', '', base, flags=re.IGNORECASE).strip()
     fn_clean = clean_company_name(fn_clean)
-    if fn_clean and len(fn_clean) > 2:
+    generic_hints = {"teks salinan", "pasted text", "teks mentah", "teks masukan", "cli text input", "screenshot", "tangkapan layar", "image"}
+    if fn_clean and len(fn_clean) > 2 and fn_clean.lower() not in generic_hints:
         return fn_clean
 
-    # 2. From document header (under 'Kepada Yth.')
+    # 2. Look for explicit company patterns like 'PT ...' or 'CV ...' anywhere in text
+    pt_match = re.search(r'\b(PT\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|CV\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|[A-Z][a-zA-Z0-9\s]{2,30}\s+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group|Technologies|Studio))\b', text)
+    if pt_match:
+        matched_str = pt_match.group(1).split('.')[0] if not pt_match.group(1).startswith(('PT.', 'CV.')) else pt_match.group(1)
+        if '.' in matched_str[3:]:
+            matched_str = matched_str[:3] + matched_str[3:].split('.')[0]
+        cand = clean_company_name(matched_str)
+        if cand and len(cand) > 3:
+            return cand
+
+
+    # 3. From document header (under 'Kepada Yth.')
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     for i, line in enumerate(lines):
         if 'kepada yth' in line.lower():
@@ -76,7 +88,7 @@ def extract_company(text: str, filename: str) -> str:
                     if len(cand) > 2:
                         return cand
 
-    # 3. Look for contextual 'di PT ...' or 'at [Company]'
+    # 4. Look for contextual 'di PT ...' or 'at [Company]'
     di_match = re.search(r'\b(?:di|at)\s+(PT\.?\s+[A-Z][a-zA-Z0-9\s]+|CV\.?\s+[A-Z][a-zA-Z0-9\s]+|[A-Z][a-zA-Z0-9\s]+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group))', text)
     if di_match:
         cand = clean_company_name(di_match.group(1))
@@ -84,6 +96,7 @@ def extract_company(text: str, filename: str) -> str:
             return cand
 
     return "Perusahaan"
+
 
 def clean_job_title(title: str) -> str:
     """Clean extracted job title from noise words and formatting artifacts."""
@@ -156,26 +169,21 @@ def generate_extractive_summary(company: str, role: str, date: Optional[str], po
     date_part = f" tertanggal {date}" if date else ""
     return f"Lamaran untuk posisi {role} di {company}{date_part} via {portal}{skills_part}."
 
-def parse_pdf_document(filepath: str) -> Dict[str, Any]:
-    """Parse a single PDF document into a structured application dictionary."""
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"File not found: {filepath}")
+def parse_raw_text(raw_text: str, source_hint: str = "Teks Mentah", filepath: str = "") -> Dict[str, Any]:
+    """Parse raw text (from clipboard, long copy-paste, OCR, or PDF) into a structured application dictionary."""
+    cleaned_text = clean_extracted_text(raw_text or "")
 
-    reader = pypdf.PdfReader(filepath)
-    raw_text = "\n".join([page.extract_text() or "" for page in reader.pages])
-    cleaned_text = clean_extracted_text(raw_text)
-
-    company = extract_company(cleaned_text, filepath)
+    company = extract_company(cleaned_text, source_hint)
     job_title = extract_job_title(cleaned_text)
     applied_date = extract_date(cleaned_text) or "2026-01-01"
     portal = extract_portal(cleaned_text)
     skills = extract_skills(cleaned_text)
     summary = generate_extractive_summary(company, job_title, applied_date, portal, skills)
 
-    rel_path = filepath.replace("\\", "/")
+    rel_path = filepath.replace("\\", "/") if filepath else f"virtual/{source_hint}"
 
     return {
-        "file_name": os.path.basename(filepath),
+        "file_name": source_hint,
         "file_path": rel_path,
         "company_name": company,
         "job_title": job_title,
@@ -187,6 +195,16 @@ def parse_pdf_document(filepath: str) -> Dict[str, Any]:
         "cover_letter_preview": cleaned_text[:350].strip(),
         "cover_letter": cleaned_text.strip()
     }
+
+def parse_pdf_document(filepath: str) -> Dict[str, Any]:
+    """Parse a single PDF document into a structured application dictionary."""
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
+
+    reader = pypdf.PdfReader(filepath)
+    raw_text = "\n".join([page.extract_text() or "" for page in reader.pages])
+    return parse_raw_text(raw_text, source_hint=os.path.basename(filepath), filepath=filepath)
+
 
 def scan_all_resumes(base_dir: str = "data") -> List[Dict[str, Any]]:
     """Recursively scan all resume PDFs in base_dir and parse them."""

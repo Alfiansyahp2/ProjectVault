@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ProjectTableViewProps } from '../types';
 import { getCategoryBadge, parseAchievements } from '../utils';
+import { TechIcon } from '@/components/tech-stack/TechIcon';
 
 export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   projects,
@@ -22,6 +23,7 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
   onDelete,
   copiedId,
   onCopy,
+  onOpenTechModal,
 }) => {
   return (
     <div className="space-y-4">
@@ -93,38 +95,57 @@ export const ProjectTableView: React.FC<ProjectTableViewProps> = ({
             <div className="lg:w-7/12 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-white/[0.08] pt-4 lg:pt-0 lg:pl-6 space-y-4">
               {/* Achievements */}
               {bullets.length > 0 && (
-                <div className="p-3.5 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-2">
+                <div className="p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/20 space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
                     <span className="flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>Dampak Terukur &amp; Capaian Kunci</span>
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                      {bullets.length} Capaian
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold">
+                      {bullets.length} Poin
                     </span>
                   </div>
-                  <div className="space-y-1.5">
-                    {bullets.map((b, idx) => (
+                  <div className="space-y-1">
+                    {bullets.slice(0, 2).map((b, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-xs text-emerald-200/90 leading-relaxed">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{b}</span>
+                        <span className="line-clamp-2">{b}</span>
                       </div>
                     ))}
+                    {bullets.length > 2 && (
+                      <span className="text-[10px] text-emerald-400/80 font-medium pl-5 block">
+                        +{bullets.length - 2} capaian lainnya
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* Tech stack & Actions */}
               <div className="space-y-3 pt-2">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5" onClick={e => e.stopPropagation()}>
                   {proj.technologies.map((t, i) => (
-                    <span
+                    <button
                       key={i}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 border border-white/[0.08] text-slate-300"
+                      type="button"
+                      onClick={() => onOpenTechModal && onOpenTechModal(proj)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700/80 border border-white/[0.08] hover:border-indigo-500/40 text-slate-200 transition cursor-pointer"
+                      title={`Klik untuk melihat detail teknologi ${t} di modal`}
                     >
-                      {t}
-                    </span>
+                      <TechIcon name={t} size="xs" showBackground={false} />
+                      <span>{t}</span>
+                    </button>
                   ))}
+                  {proj.technologies.length > 0 && onOpenTechModal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenTechModal(proj)}
+                      className="px-2 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 transition cursor-pointer"
+                      title="Buka modal tech stack lengkap proyek ini"
+                    >
+                      Buka Modal Stack
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between pt-2" onClick={e => e.stopPropagation()}>

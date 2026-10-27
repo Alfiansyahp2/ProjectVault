@@ -19,3 +19,8 @@ class ParseSinglePdfRequest(BaseModel):
 class ExportResumesRequest(BaseModel):
     base_dir: Optional[str] = "data"
     output_path: Optional[str] = "data/parsed_applications.json"
+
+class ParseRawTextRequest(BaseModel):
+    text: str
+    source_hint: Optional[str] = "Pasted Text"
+

@@ -1,12 +1,14 @@
 import React from 'react';
 import Link from 'next/link';
-import { FolderGit2, Briefcase, Clock, Trophy, ArrowRight } from 'lucide-react';
+import { FolderGit2, Briefcase, Clock, Trophy, ArrowRight, Cpu } from 'lucide-react';
 
 interface DashboardMetricsProps {
   totalProjects: number;
   totalApplications: number;
   interviewCount: number;
   offerCount: number;
+  totalTech?: number;
+  onOpenTechStackModal?: () => void;
 }
 
 export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
@@ -14,6 +16,8 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
   totalApplications,
   interviewCount,
   offerCount,
+  totalTech,
+  onOpenTechStackModal,
 }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -28,21 +32,35 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           </div>
         </div>
 
-        <div className="mt-4 flex items-baseline gap-2">
-          <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            {totalProjects}
-          </span>
-          <span className="text-xs font-medium text-slate-400">portofolio</span>
+        <div className="mt-4 flex items-baseline justify-between">
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              {totalProjects}
+            </span>
+            <span className="text-xs font-medium text-slate-400">portofolio</span>
+          </div>
+
+          {totalTech !== undefined && onOpenTechStackModal && (
+            <button
+              onClick={onOpenTechStackModal}
+              className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition cursor-pointer"
+              title="Buka Modal Tech Stack & Ikon"
+            >
+              <Cpu className="w-3 h-3 text-indigo-400" />
+              <span>{totalTech}+ Tech</span>
+            </button>
+          )}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
           <Link 
             href="/projects" 
-            className="group/link inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
+            className="group/link inline-flex items-center gap-1 font-semibold text-indigo-400 hover:text-indigo-300 cursor-pointer"
           >
             <span>Kelola Proyek</span>
             <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
           </Link>
+          <span className="text-[11px] text-slate-500">Bukti nyata</span>
         </div>
       </div>
 
@@ -64,14 +82,15 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">perusahaan</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06]">
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
           <Link 
             href="/applications" 
-            className="group/link inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
+            className="group/link inline-flex items-center gap-1 font-semibold text-sky-400 hover:text-sky-300 cursor-pointer"
           >
             <span>Buka Kanban</span>
             <ArrowRight className="w-3 h-3 group-hover/link:translate-x-1 transition-transform" />
           </Link>
+          <span className="text-[11px] text-slate-500">Pelacak aktif</span>
         </div>
       </div>
 
@@ -93,8 +112,9 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">tahap proses</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
-          Fokus simulasi wawancara teknis
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-400">
+          <span>Simulasi Wawancara</span>
+          <span className="text-[11px] text-amber-400/80 font-medium">Prioritas</span>
         </div>
       </div>
 
@@ -116,8 +136,9 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({
           <span className="text-xs font-medium text-slate-400">penawaran kerja</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
-          Target keberhasilan karir Anda
+        <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs text-slate-400">
+          <span>Target Karir</span>
+          <span className="text-[11px] text-emerald-400/80 font-medium">Goal Utama</span>
         </div>
       </div>
     </div>
