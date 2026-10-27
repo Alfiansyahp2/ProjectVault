@@ -14,6 +14,7 @@ import { ProjectTableView } from './ProjectTableView';
 import ProjectModal from '@/components/ProjectModal';
 import AiPromptModal from '@/components/AiPromptModal';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
+import TechStackModal from '@/components/TechStackModal';
 
 export const ProjectsView: React.FC = () => {
   const {
@@ -48,6 +49,13 @@ export const ProjectsView: React.FC = () => {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [detailProject, setDetailProject] = useState<Project | null>(null);
+  const [isTechModalOpen, setIsTechModalOpen] = useState(false);
+  const [selectedProjectForTech, setSelectedProjectForTech] = useState<Project | null>(null);
+
+  const handleOpenTechModal = (p?: Project) => {
+    setSelectedProjectForTech(p || null);
+    setIsTechModalOpen(true);
+  };
 
   const handleCopyProject = (p: Project, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -87,6 +95,7 @@ export const ProjectsView: React.FC = () => {
           setEditingProject(null);
           setIsModalOpen(true);
         }}
+        onOpenTechModal={() => handleOpenTechModal()}
       />
 
       {/* Sync Notification Banner */}
@@ -118,6 +127,7 @@ export const ProjectsView: React.FC = () => {
           onDelete={handleDeleteProject}
           copiedId={copiedId}
           onCopy={handleCopyProject}
+          onOpenTechModal={handleOpenTechModal}
         />
       ) : (
         <ProjectTableView
@@ -127,6 +137,7 @@ export const ProjectsView: React.FC = () => {
           onDelete={handleDeleteProject}
           copiedId={copiedId}
           onCopy={handleCopyProject}
+          onOpenTechModal={handleOpenTechModal}
         />
       )}
 
@@ -157,6 +168,7 @@ export const ProjectsView: React.FC = () => {
         isOpen={Boolean(detailProject)}
         project={detailProject}
         onClose={() => setDetailProject(null)}
+        onOpenTechModal={(p) => handleOpenTechModal(p)}
         onEdit={(p) => {
           setEditingProject(p);
           setIsModalOpen(true);
@@ -191,6 +203,17 @@ export const ProjectsView: React.FC = () => {
         onClose={() => setIsAiModalOpen(false)}
         projects={projects}
         profile={profile}
+      />
+
+      {/* TECH STACK ECOSYSTEM & PROJECT MODAL */}
+      <TechStackModal
+        isOpen={isTechModalOpen}
+        onClose={() => setIsTechModalOpen(false)}
+        projects={projects}
+        initialProject={selectedProjectForTech}
+        onSelectProject={(p) => {
+          setSelectedProjectForTech(p);
+        }}
       />
     </div>
   );

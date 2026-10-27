@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Project, JobApplication, UserProfile } from '@/lib/types';
 import { getProjects, getApplications, getUserProfile, saveProject, saveApplication } from '@/lib/storage';
 import { DashboardHeroBanner } from './DashboardHeroBanner';
@@ -11,6 +11,7 @@ import { RecentApplicationsCard } from './RecentApplicationsCard';
 import ProjectModal from '@/components/ProjectModal';
 import ApplicationModal from '@/components/ApplicationModal';
 import AiPromptModal from '@/components/AiPromptModal';
+import TechStackModal from '@/components/TechStackModal';
 
 export const DashboardView: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -22,6 +23,8 @@ export const DashboardView: React.FC = () => {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isAppModalOpen, setIsAppModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isTechModalOpen, setIsTechModalOpen] = useState(false);
+  const [selectedProjectForTech, setSelectedProjectForTech] = useState<Project | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -70,12 +73,24 @@ export const DashboardView: React.FC = () => {
   const interviewCount = applications.filter(a => a.status === 'interview').length;
   const offerCount = applications.filter(a => a.status === 'offer').length;
 
+  const totalTech = useMemo(() => {
+    const all = new Set<string>();
+    projects.forEach(p => (p.technologies || []).forEach(t => all.add(t.toLowerCase().trim())));
+    return all.size;
+  }, [projects]);
+
+  const handleOpenTechModal = (proj?: Project) => {
+    setSelectedProjectForTech(proj || null);
+    setIsTechModalOpen(true);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Hero / Welcome Banner */}
       <DashboardHeroBanner
         profile={profile}
         onOpenAiModal={() => setIsAiModalOpen(true)}
+        onOpenTechModal={() => handleOpenTechModal()}
       />
 
       {/* Follow-up Smart Alert Banner */}
@@ -87,6 +102,8 @@ export const DashboardView: React.FC = () => {
         totalApplications={applications.length}
         interviewCount={interviewCount}
         offerCount={offerCount}
+        totalTech={totalTech}
+        onOpenTechStackModal={() => handleOpenTechModal()}
       />
 
       {/* Main Sections: Recent Projects & Recent Applications */}
@@ -96,6 +113,7 @@ export const DashboardView: React.FC = () => {
           copiedId={copiedId}
           onCopySummary={copyProjectSummary}
           onAddProject={() => setIsProjectModalOpen(true)}
+          onOpenTechStackModal={handleOpenTechModal}
         />
 
         <RecentApplicationsCard
@@ -120,6 +138,15 @@ export const DashboardView: React.FC = () => {
         onClose={() => setIsAiModalOpen(false)}
         projects={projects}
         profile={profile}
+      />
+      <TechStackModal
+        isOpen={isTechModalOpen}
+        onClose={() => setIsTechModalOpen(false)}
+        projects={projects}
+        initialProject={selectedProjectForTech}
+        onSelectProject={(p) => {
+          setSelectedProjectForTech(p);
+        }}
       />
     </div>
   );
