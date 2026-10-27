@@ -7,7 +7,8 @@ import {
   RotateCcw, 
   Image as ImageIcon, 
   FolderOpen, 
-  RefreshCw 
+  RefreshCw,
+  CheckCircle2 
 } from 'lucide-react';
 import { LocalFilePickerModal } from './LocalFilePickerModal';
 import { useJobInputOcr } from '../hooks/use-job-input-ocr';
@@ -71,7 +72,7 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-1.5" ref={menuRef}>
+    <div className="relative flex items-center gap-1.5 shrink-0" ref={menuRef}>
       <input
         ref={fileInputRef}
         type="file"
@@ -80,27 +81,42 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
         onChange={onFileChange}
       />
 
-      {(ocrLoading || statusMsg) && (
-        <span className="text-[11px] font-medium text-sky-400 flex items-center gap-1.5 animate-in fade-in mr-1">
-          {ocrLoading && <RefreshCw className="w-3 h-3 animate-spin text-sky-400" />}
-          <span>{ocrStatus || statusMsg}</span>
-        </span>
+      {/* Floating Status Notification Pill */}
+      {statusMsg && !isMenuOpen && (
+        <div className="absolute right-0 top-full mt-2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b1220]/95 border border-emerald-500/40 text-emerald-300 text-xs shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 whitespace-nowrap">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>{statusMsg}</span>
+        </div>
+      )}
+
+      {ocrLoading && ocrStatus && !isMenuOpen && (
+        <div className="absolute right-0 top-full mt-2 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0b1220]/95 border border-sky-500/40 text-sky-300 text-xs shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 whitespace-nowrap">
+          <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400 shrink-0" />
+          <span>{ocrStatus}</span>
+        </div>
       )}
 
       {/* Icon + (Plus Dropdown Button) */}
       <div className="relative">
         <button
           type="button"
+          disabled={ocrLoading}
           onClick={() => setIsMenuOpen(prev => !prev)}
           title="Tambah gambar atau berkas lokal"
-          className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-lg border transition cursor-pointer ${
-            isMenuOpen 
-              ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sm shadow-sky-500/20' 
-              : 'text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border-white/10'
+          aria-label="Tambah gambar atau berkas lokal"
+          className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+            ocrLoading
+              ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 cursor-wait'
+              : isMenuOpen 
+                ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sm shadow-sky-500/20' 
+                : 'text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border-white/10'
           }`}
         >
-          <Plus className={`w-3.5 h-3.5 transition-transform duration-200 ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
-          <span className="hidden sm:inline">Tambah</span>
+          {ocrLoading ? (
+            <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
+          ) : (
+            <Plus className={`w-4 h-4 transition-transform duration-200 ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
+          )}
         </button>
 
         {isMenuOpen && (
@@ -150,20 +166,20 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
         type="button"
         onClick={handlePasteClipboard}
         title="Tempel teks dari Clipboard"
-        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-300 hover:text-indigo-400 hover:bg-white/[0.06] transition cursor-pointer"
+        aria-label="Tempel teks dari Clipboard"
+        className="p-1.5 rounded-lg text-slate-300 hover:text-indigo-400 hover:bg-white/[0.06] transition cursor-pointer flex items-center justify-center"
       >
-        <ClipboardPaste className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Tempel</span>
+        <ClipboardPaste className="w-4 h-4" />
       </button>
 
       <button
         type="button"
         onClick={onReset}
         title="Bersihkan isi form"
-        className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.06] transition cursor-pointer"
+        aria-label="Bersihkan isi form"
+        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.06] transition cursor-pointer flex items-center justify-center"
       >
-        <RotateCcw className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Reset</span>
+        <RotateCcw className="w-4 h-4" />
       </button>
 
       <LocalFilePickerModal

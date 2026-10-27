@@ -83,34 +83,41 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
       />
 
       {/* Header action bar */}
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
-          <AlignLeft className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider shrink-0 whitespace-nowrap">
+          <AlignLeft className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
           <span>Salin / Tempel Teks Panjang</span>
         </span>
 
-        <div className="flex items-center gap-1.5" ref={menuRef}>
-          {ocrLoading && (
-            <span className="text-[10px] text-sky-400 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3 animate-spin" />
+        <div className="relative flex items-center gap-1.5 shrink-0" ref={menuRef}>
+          {ocrLoading && ocrStatus && !isMenuOpen && (
+            <div className="absolute right-0 top-full mt-1.5 z-30 flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#0b1220]/95 border border-sky-500/40 text-sky-300 text-[10px] shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-1 whitespace-nowrap">
+              <RefreshCw className="w-3 h-3 animate-spin text-sky-400 shrink-0" />
               <span>{ocrStatus}</span>
-            </span>
+            </div>
           )}
 
           {/* Icon + (Plus Button) */}
           <div className="relative">
             <button
               type="button"
+              disabled={ocrLoading}
               onClick={() => setIsMenuOpen(prev => !prev)}
               title="Tambah gambar atau dari lokal"
-              className={`flex items-center gap-1 px-1.5 py-1 text-[11px] rounded-lg border transition cursor-pointer ${
-                isMenuOpen 
-                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' 
-                  : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border-white/10'
+              aria-label="Tambah gambar atau dari lokal"
+              className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center justify-center ${
+                ocrLoading
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 cursor-wait'
+                  : isMenuOpen 
+                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' 
+                    : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border-white/10'
               }`}
             >
-              <Plus className={`w-3 h-3 transition-transform ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
-              <span className="hidden sm:inline text-[10px]">Tambah</span>
+              {ocrLoading ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+              ) : (
+                <Plus className={`w-3.5 h-3.5 transition-transform ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
+              )}
             </button>
 
             {isMenuOpen && (
@@ -151,20 +158,22 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
           <button
             type="button"
             onClick={handlePasteClipboard}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-sky-400 transition cursor-pointer"
+            title="Tempel teks dari Clipboard"
+            aria-label="Tempel teks dari Clipboard"
+            className="p-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] text-sky-400 transition cursor-pointer flex items-center justify-center"
           >
-            <ClipboardPaste className="w-3 h-3" />
-            <span>Tempel</span>
+            <ClipboardPaste className="w-3.5 h-3.5" />
           </button>
 
           {rawText && (
             <button
               type="button"
               onClick={handleClear}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded-lg text-slate-400 hover:text-rose-400 transition cursor-pointer"
+              title="Bersihkan isi form"
+              aria-label="Bersihkan isi form"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 transition cursor-pointer flex items-center justify-center"
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>Bersihkan</span>
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

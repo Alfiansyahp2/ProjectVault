@@ -49,12 +49,12 @@ export const JobInputCard: React.FC<JobInputCardProps> = ({
   return (
     <div className="glass-card rounded-2xl p-5 sm:p-6 border border-white/[0.08] shadow-2xl space-y-4">
       {/* Header and Quick Actions */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-        <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] gap-2">
+        <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 shrink-0">
+          <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shrink-0">
             <Briefcase className="w-4 h-4" />
           </div>
-          <span>Informasi Lowongan</span>
+          <span className="whitespace-nowrap">Informasi Lowongan</span>
         </h2>
 
         <JobInputMediaMenu
