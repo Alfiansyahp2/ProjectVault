@@ -1,5 +1,18 @@
-import React, { useState } from 'react';
-import { ClipboardPaste, RotateCcw, Sparkles, RefreshCw, AlignLeft } from 'lucide-react';
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  ClipboardPaste, 
+  RotateCcw, 
+  Sparkles, 
+  RefreshCw, 
+  AlignLeft, 
+  Plus, 
+  Image as ImageIcon, 
+  FolderOpen 
+} from 'lucide-react';
+import { LocalFilePickerModal } from '@/features/analyzer/components/LocalFilePickerModal';
+import { useJobInputOcr } from '@/features/analyzer/hooks/use-job-input-ocr';
 
 interface RawTextParserTabProps {
   isParsing: boolean;
@@ -11,6 +24,30 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
   onRawTextParse,
 }) => {
   const [rawText, setRawText] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLocalModalOpen, setIsLocalModalOpen] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    ocrLoading,
+    ocrStatus,
+    handleImageOcr,
+    handleLoadLocalFile,
+  } = useJobInputOcr({
+    onInsertText: text => setRawText(prev => prev ? `${prev}\n\n${text}` : text),
+  });
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handlePasteClipboard = async () => {
     try {
@@ -32,6 +69,19 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
 
   return (
     <div className="space-y-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/jpg"
+        className="hidden"
+        onChange={e => {
+          if (e.target.files && e.target.files.length > 0) {
+            setIsMenuOpen(false);
+            handleImageOcr(e.target.files[0]);
+          }
+        }}
+      />
+
       {/* Header action bar */}
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
@@ -39,7 +89,65 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
           <span>Salin / Tempel Teks Panjang</span>
         </span>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5" ref={menuRef}>
+          {ocrLoading && (
+            <span className="text-[10px] text-sky-400 flex items-center gap-1">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>{ocrStatus}</span>
+            </span>
+          )}
+
+          {/* Icon + (Plus Button) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen(prev => !prev)}
+              title="Tambah gambar atau dari lokal"
+              className={`flex items-center gap-1 px-1.5 py-1 text-[11px] rounded-lg border transition cursor-pointer ${
+                isMenuOpen 
+                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/50' 
+                  : 'bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border-white/10'
+              }`}
+            >
+              <Plus className={`w-3 h-3 transition-transform ${isMenuOpen ? 'rotate-45 text-sky-400' : ''}`} />
+              <span className="hidden sm:inline text-[10px]">Tambah</span>
+            </button>
+
+            {isMenuOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-[#0b1220]/95 backdrop-blur-md border border-white/10 rounded-xl p-1 shadow-2xl z-30 animate-in fade-in space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full p-2 rounded-lg text-left hover:bg-sky-500/15 text-slate-200 hover:text-white transition flex items-center gap-2 group cursor-pointer text-xs"
+                >
+                  <ImageIcon className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-xs leading-tight">Tambah Gambar</p>
+                    <p className="text-[10px] text-slate-400">Ekstrak teks gambar (OCR)</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    setIsLocalModalOpen(true);
+                  }}
+                  className="w-full p-2 rounded-lg text-left hover:bg-indigo-500/15 text-slate-200 hover:text-white transition flex items-center gap-2 group cursor-pointer text-xs"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-xs leading-tight">Tambah dari Lokal</p>
+                    <p className="text-[10px] text-slate-400">Pilih dari data/resume</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={handlePasteClipboard}
@@ -48,6 +156,7 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
             <ClipboardPaste className="w-3 h-3" />
             <span>Tempel</span>
           </button>
+
           {rawText && (
             <button
               type="button"
@@ -95,6 +204,16 @@ export const RawTextParserTab: React.FC<RawTextParserTabProps> = ({
           </>
         )}
       </button>
+
+      <LocalFilePickerModal
+        isOpen={isLocalModalOpen}
+        onClose={() => setIsLocalModalOpen(false)}
+        onSelectFile={file => {
+          setIsLocalModalOpen(false);
+          handleLoadLocalFile(file);
+        }}
+        isLoading={ocrLoading}
+      />
     </div>
   );
 };

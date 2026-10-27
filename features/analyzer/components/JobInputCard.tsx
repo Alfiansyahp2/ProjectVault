@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Sparkles, AlertCircle, ClipboardPaste, RotateCcw, Zap } from 'lucide-react';
+import { Briefcase, Sparkles, AlertCircle, Zap } from 'lucide-react';
 import { JobAnalyzerFormData } from '../types';
 import { SAMPLE_JOB_PRESETS, TONE_OPTIONS, LANGUAGE_OPTIONS } from '../constants';
+import { JobInputMediaMenu } from './JobInputMediaMenu';
 
 interface JobInputCardProps {
   formData: JobAnalyzerFormData;
@@ -31,17 +32,6 @@ export const JobInputCard: React.FC<JobInputCardProps> = ({
     setFormData(preset.data);
   };
 
-  const handlePasteClipboard = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        updateField('jobDescription', text);
-      }
-    } catch {
-      // Ignore clipboard permission errors silently
-    }
-  };
-
   const handleResetForm = () => {
     setActivePresetId(null);
     setFormData({
@@ -67,26 +57,12 @@ export const JobInputCard: React.FC<JobInputCardProps> = ({
           <span>Informasi Lowongan</span>
         </h2>
 
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handlePasteClipboard}
-            title="Tempel teks dari Clipboard"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-300 hover:text-indigo-400 hover:bg-white/[0.06] transition cursor-pointer"
-          >
-            <ClipboardPaste className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Tempel</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleResetForm}
-            title="Bersihkan isi form"
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.06] transition cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
-        </div>
+        <JobInputMediaMenu
+          onInsertText={text => updateField('jobDescription', text)}
+          onSetJobTitle={title => updateField('jobTitle', title)}
+          onSetCompanyName={company => updateField('companyName', company)}
+          onReset={handleResetForm}
+        />
       </div>
 
       {/* Preset Quick Chips */}
