@@ -8,7 +8,8 @@ import {
   Image as ImageIcon, 
   FolderOpen, 
   RefreshCw,
-  CheckCircle2 
+  CheckCircle2,
+  Laptop 
 } from 'lucide-react';
 import { LocalFilePickerModal } from './LocalFilePickerModal';
 import { useJobInputOcr } from '../hooks/use-job-input-ocr';
@@ -31,6 +32,7 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const {
     ocrLoading,
@@ -39,6 +41,7 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
     showStatus,
     handleImageOcr,
     handleLoadLocalFile,
+    handleUploadDocument,
   } = useJobInputOcr({ onInsertText, onSetJobTitle, onSetCompanyName });
 
   // Close dropdown on outside click
@@ -71,6 +74,13 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
     }
   };
 
+  const onDocChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setIsMenuOpen(false);
+      handleUploadDocument(e.target.files[0]);
+    }
+  };
+
   return (
     <div className="relative flex items-center gap-1.5 shrink-0" ref={menuRef}>
       <input
@@ -79,6 +89,14 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
         accept="image/png,image/jpeg,image/webp,image/jpg"
         className="hidden"
         onChange={onFileChange}
+      />
+
+      <input
+        ref={docInputRef}
+        type="file"
+        accept=".pdf,.txt,.md,.doc,.docx"
+        className="hidden"
+        onChange={onDocChange}
       />
 
       {/* Floating Status Notification Pill */}
@@ -120,7 +138,7 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
         </button>
 
         {isMenuOpen && (
-          <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#0b1220]/95 backdrop-blur-md border border-white/10 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 space-y-1">
+          <div className="absolute right-0 top-full mt-1.5 w-60 bg-[#0b1220]/95 backdrop-blur-md border border-white/10 rounded-2xl p-1.5 shadow-2xl z-30 animate-in fade-in zoom-in-95 space-y-1">
             <div className="px-2.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-white/[0.06]">
               Sumber Masukan
             </div>
@@ -139,6 +157,23 @@ export const JobInputMediaMenu: React.FC<JobInputMediaMenuProps> = ({
               <div className="min-w-0">
                 <p className="text-xs font-bold leading-tight">Tambah Gambar</p>
                 <p className="text-[10px] text-slate-400 truncate">Ekstrak teks gambar (OCR)</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsMenuOpen(false);
+                docInputRef.current?.click();
+              }}
+              className="w-full p-2 rounded-xl text-left hover:bg-emerald-500/15 text-slate-200 hover:text-white transition flex items-center gap-2.5 group cursor-pointer"
+            >
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                <Laptop className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold leading-tight">Buka Berkas Komputer</p>
+                <p className="text-[10px] text-slate-400 truncate">Pilih PDF / teks dari folder PC</p>
               </div>
             </button>
 

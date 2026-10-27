@@ -159,6 +159,63 @@ export function useJobInputOcr({
     }
   };
 
+  const handleUploadDocument = async (file: File) => {
+    if (!file) return;
+
+    setOcrLoading(true);
+    setOcrStatus(`Mengekstrak ${file.name}...`);
+
+    try {
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/applications/upload-parse', {
+          method: 'POST',
+          body: formData,
+        });
+        const resData = await res.json();
+        if (resData.success && resData.data) {
+          const textToInsert = resData.data.cover_letter || resData.data.summary || '';
+          if (textToInsert) onInsertText(textToInsert);
+          if (resData.data.job_title && onSetJobTitle) {
+            onSetJobTitle(resData.data.job_title);
+          }
+          if (resData.data.company_name && !isInvalidCompany(resData.data.company_name) && onSetCompanyName) {
+            onSetCompanyName(resData.data.company_name);
+          }
+          showStatus(`Berhasil mengekstrak: ${file.name}`);
+        } else {
+          showStatus(resData.error || 'Gagal mengekstrak berkas PDF');
+        }
+      } else if (file.type.startsWith('image/')) {
+        await handleImageOcr(file);
+      } else {
+        const text = await file.text();
+        onInsertText(text);
+        const res = await fetch('/api/applications/upload-parse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rawText: text, sourceHint: file.name }),
+        });
+        const resData = await res.json();
+        if (resData.success && resData.data) {
+          if (resData.data.job_title && onSetJobTitle) {
+            onSetJobTitle(resData.data.job_title);
+          }
+          if (resData.data.company_name && !isInvalidCompany(resData.data.company_name) && onSetCompanyName) {
+            onSetCompanyName(resData.data.company_name);
+          }
+        }
+        showStatus(`Berhasil memuat berkas: ${file.name}`);
+      }
+    } catch (err: any) {
+      showStatus(`Gagal membaca berkas: ${err.message || 'Kesalahan'}`);
+    } finally {
+      setOcrLoading(false);
+      setOcrStatus(null);
+    }
+  };
+
   return {
     ocrLoading,
     ocrStatus,
@@ -166,5 +223,6 @@ export function useJobInputOcr({
     showStatus,
     handleImageOcr,
     handleLoadLocalFile,
+    handleUploadDocument,
   };
 }
