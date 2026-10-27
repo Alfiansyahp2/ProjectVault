@@ -37,8 +37,12 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
     setSelectedLocalFile,
     parseSuccessMsg,
     parseErrorMsg,
+    ocrProgress,
+    ocrStatus,
     handleFileUpload,
     handleLocalFileParse,
+    handleRawTextParse,
+    handleImageOcrParse,
     resetParserState,
   } = useResumeParser(isOpen, setFormData);
 
@@ -141,11 +145,15 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
               parsedResult={parsedResult}
               parseSuccessMsg={parseSuccessMsg}
               parseErrorMsg={parseErrorMsg}
+              ocrProgress={ocrProgress}
+              ocrStatus={ocrStatus}
               localFiles={localFiles}
               selectedLocalFile={selectedLocalFile}
               setSelectedLocalFile={setSelectedLocalFile}
               onFileUpload={handleFileUpload}
               onLocalFileParse={handleLocalFileParse}
+              onRawTextParse={handleRawTextParse}
+              onImageOcrParse={handleImageOcrParse}
               onResetParsed={() => resetParserState()}
             />
           </div>

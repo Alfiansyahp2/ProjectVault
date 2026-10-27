@@ -13,6 +13,8 @@ export function useResumeParser(
   const [selectedLocalFile, setSelectedLocalFile] = useState<string>('');
   const [parseSuccessMsg, setParseSuccessMsg] = useState<string | null>(null);
   const [parseErrorMsg, setParseErrorMsg] = useState<string | null>(null);
+  const [ocrProgress, setOcrProgress] = useState<number | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<string | null>(null);
 
   // Fetch list of local files when modal opens
   useEffect(() => {
@@ -68,7 +70,7 @@ export function useResumeParser(
 
   const handleFileUpload = async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setParseErrorMsg('Hanya berkas format .PDF yang didukung.');
+      setParseErrorMsg('Hanya berkas format .PDF yang didukung pada tab PDF.');
       return;
     }
     setIsParsing(true);
@@ -101,7 +103,7 @@ export function useResumeParser(
       const res = await fetch('/api/applications/upload-parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filePath }),
+        body: JSON.stringify({ localFilePath: filePath }),
       });
       const json = await res.json();
       if (json.success && json.data) {
@@ -117,11 +119,78 @@ export function useResumeParser(
     }
   };
 
+  const handleRawTextParse = async (text: string, sourceHint: string = 'Teks Salinan') => {
+    if (!text || !text.trim()) {
+      setParseErrorMsg('Teks masukan tidak boleh kosong.');
+      return;
+    }
+    setIsParsing(true);
+    setParseErrorMsg(null);
+    try {
+      const res = await fetch('/api/applications/upload-parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rawText: text, sourceHint }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        applyParsedData(json.data, sourceHint);
+      } else {
+        setParseErrorMsg(json.error || 'Gagal mem-parse teks');
+      }
+    } catch (err: any) {
+      setParseErrorMsg(err.message || 'Terjadi kesalahan koneksi server');
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
+  const handleImageOcrParse = async (fileOrBlob: File | Blob, customName?: string) => {
+    setIsParsing(true);
+    setParseErrorMsg(null);
+    setOcrProgress(10);
+    setOcrStatus('Memuat modul OCR Tesseract lokal...');
+
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng+ind', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+            setOcrProgress(Math.round(20 + m.progress * 65));
+            setOcrStatus(`Mengekstrak teks (${Math.round(m.progress * 100)}%)...`);
+          }
+        }
+      });
+
+      const ret = await worker.recognize(fileOrBlob);
+      await worker.terminate();
+
+      const extractedText = ret.data.text.trim();
+      if (!extractedText) {
+        throw new Error('Tidak ada teks yang dapat dikenali dari gambar ini.');
+      }
+
+      setOcrProgress(90);
+      setOcrStatus('Menganalisis entitas teks dengan NLP Engine...');
+
+      const fileName = customName || ('name' in fileOrBlob ? (fileOrBlob as File).name : 'Tangkapan Layar');
+      await handleRawTextParse(extractedText, `Gambar: ${fileName}`);
+    } catch (err: any) {
+      setParseErrorMsg(err.message || 'Gagal melakukan OCR pada gambar');
+      setIsParsing(false);
+    } finally {
+      setOcrProgress(null);
+      setOcrStatus(null);
+    }
+  };
+
   const resetParserState = () => {
     setParsedResult(null);
     setSelectedLocalFile('');
     setParseSuccessMsg(null);
     setParseErrorMsg(null);
+    setOcrProgress(null);
+    setOcrStatus(null);
   };
 
   return {
@@ -132,8 +201,12 @@ export function useResumeParser(
     setSelectedLocalFile,
     parseSuccessMsg,
     parseErrorMsg,
+    ocrProgress,
+    ocrStatus,
     handleFileUpload,
     handleLocalFileParse,
+    handleRawTextParse,
+    handleImageOcrParse,
     resetParserState,
   };
 }

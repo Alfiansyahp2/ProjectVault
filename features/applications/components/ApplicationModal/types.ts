@@ -38,10 +38,15 @@ export interface ApplicationParserPanelProps {
   parsedResult: any;
   parseSuccessMsg: string | null;
   parseErrorMsg: string | null;
+  ocrProgress?: number | null;
+  ocrStatus?: string | null;
   localFiles: LocalResumeFile[];
   selectedLocalFile: string;
   setSelectedLocalFile: (path: string) => void;
   onFileUpload: (file: File) => void;
   onLocalFileParse: (path: string) => void;
+  onRawTextParse: (text: string, sourceHint?: string) => void;
+  onImageOcrParse: (fileOrBlob: File | Blob) => void;
   onResetParsed: () => void;
 }
+

@@ -21,6 +21,41 @@ async function parsePdfWithPython(filePath: string, cwd: string) {
   return JSON.parse(stdout.trim());
 }
 
+// Helper to run python parse_raw_text on arbitrary long text
+async function parseRawTextWithPython(text: string, cwd: string, hint: string = 'Teks Salinan') {
+  try {
+    const res = await fetch('http://127.0.0.1:8000/api/py/resumes/parse-text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, source_hint: hint }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === 'success' && data.result) {
+        return data.result;
+      }
+    }
+  } catch {
+    // Fallback if FastAPI server is not responding directly
+  }
+
+  const uploadDir = path.join(cwd, 'scratch', 'uploads');
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+  const tempTxt = path.join(uploadDir, `tmp_${Date.now()}.txt`);
+  fs.writeFileSync(tempTxt, text, 'utf-8');
+  try {
+    const pythonCmd = `python -c "import sys, json; from api.services.nlp_engine import parse_raw_text; f=open(r'${tempTxt.replace(/\\/g, '/')}', encoding='utf-8'); print(json.dumps(parse_raw_text(f.read(), '${hint}'), ensure_ascii=False))"`;
+    const { stdout, stderr } = await execPromise(pythonCmd, { cwd });
+    if (!stdout && stderr) throw new Error(stderr);
+    return JSON.parse(stdout.trim());
+  } finally {
+    if (fs.existsSync(tempTxt)) {
+      try { fs.unlinkSync(tempTxt); } catch {}
+    }
+  }
+}
+
 // GET: List available local resume PDFs from data/resume and data/resume/New folder
 export async function GET() {
   try {
@@ -73,14 +108,32 @@ export async function POST(req: NextRequest) {
     const cwd = process.cwd();
     const contentType = req.headers.get('content-type') || '';
 
-    // Mode A: JSON payload with localFilePath
+    // Mode A: JSON payload with rawText or localFilePath
     if (contentType.includes('application/json')) {
       const body = await req.json();
+
+      if (typeof body?.rawText === 'string') {
+        const rawText = body.rawText.trim();
+        if (!rawText) {
+          return NextResponse.json(
+            { success: false, error: 'Teks masukan tidak boleh kosong.' },
+            { status: 400 }
+          );
+        }
+        const sourceHint = typeof body?.sourceHint === 'string' && body.sourceHint ? body.sourceHint : 'Teks Salinan';
+        const parsedData = await parseRawTextWithPython(rawText, cwd, sourceHint);
+        return NextResponse.json({
+          success: true,
+          source: 'raw_text',
+          data: parsedData
+        });
+      }
+
       const localFilePath = body?.localFilePath;
 
       if (!localFilePath || typeof localFilePath !== 'string') {
         return NextResponse.json(
-          { success: false, error: 'Parameter localFilePath wajib disertakan dalam format string.' },
+          { success: false, error: 'Parameter localFilePath atau rawText wajib disertakan dalam format string.' },
           { status: 400 }
         );
       }
