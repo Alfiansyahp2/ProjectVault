@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Briefcase, Sparkles, X, CheckCircle2 } from 'lucide-react';
-import { ApplicationModalProps, ApplicationFormData, LocalResumeFile } from './types';
+import { ApplicationModalProps, ApplicationFormData } from './types';
 import { ApplicationForm } from './ApplicationForm';
 import { ApplicationParserPanel } from './ApplicationParserPanel';
+import { useResumeParser } from './use-resume-parser';
 
 const INITIAL_FORM_DATA: ApplicationFormData = {
   companyName: '',
@@ -27,30 +28,27 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
 }) => {
   const [mounted, setMounted] = useState(false);
   const [formData, setFormData] = useState<ApplicationFormData>(INITIAL_FORM_DATA);
-  const [isParsing, setIsParsing] = useState(false);
-  const [parsedResult, setParsedResult] = useState<any>(null);
-  const [localFiles, setLocalFiles] = useState<LocalResumeFile[]>([]);
-  const [selectedLocalFile, setSelectedLocalFile] = useState<string>('');
-  const [parseSuccessMsg, setParseSuccessMsg] = useState<string | null>(null);
-  const [parseErrorMsg, setParseErrorMsg] = useState<string | null>(null);
+
+  const {
+    isParsing,
+    parsedResult,
+    localFiles,
+    selectedLocalFile,
+    setSelectedLocalFile,
+    parseSuccessMsg,
+    parseErrorMsg,
+    ocrProgress,
+    ocrStatus,
+    handleFileUpload,
+    handleLocalFileParse,
+    handleRawTextParse,
+    handleImageOcrParse,
+    resetParserState,
+  } = useResumeParser(isOpen, setFormData);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Fetch list of local files when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      fetch('/api/applications/upload-parse')
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && Array.isArray(data.files)) {
-            setLocalFiles(data.files);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [isOpen]);
 
   // Reset or populate form state
   useEffect(() => {
@@ -66,110 +64,14 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
         jobDescription: initialData.job_description || '',
         coverLetter: initialData.cover_letter || '',
       });
-      setParsedResult(null);
     } else {
       setFormData({
         ...INITIAL_FORM_DATA,
         appliedDate: new Date().toISOString().split('T')[0],
       });
-      setParsedResult(null);
-      setSelectedLocalFile('');
+      resetParserState();
     }
-    setParseSuccessMsg(null);
-    setParseErrorMsg(null);
   }, [initialData, isOpen]);
-
-  // Apply parsed entity data into left form
-  const applyParsedData = (data: any, fileName: string) => {
-    setParsedResult({ ...data, sourceFileName: fileName });
-    setParseErrorMsg(null);
-
-    setFormData(prev => {
-      const updated = { ...prev };
-      if (data.company_name && data.company_name !== 'Perusahaan') {
-        updated.companyName = data.company_name;
-      }
-      if (data.job_title) {
-        updated.jobTitle = data.job_title;
-      }
-      if (data.applied_date) {
-        updated.appliedDate = data.applied_date;
-      }
-      if (data.cover_letter) {
-        updated.coverLetter = data.cover_letter;
-      } else if (data.cover_letter_preview) {
-        updated.coverLetter = data.cover_letter_preview;
-      }
-      if (data.summary) {
-        const skillsSuffix = data.key_skills?.length 
-          ? `\n\nKeahlian Kunci Terdeteksi: ${data.key_skills.join(', ')}` 
-          : '';
-        updated.jobDescription = data.summary + skillsSuffix;
-      }
-      if (data.source_portal && data.source_portal !== 'Direct / Other') {
-        updated.notes = updated.notes 
-          ? `${updated.notes} • Sumber: ${data.source_portal}` 
-          : `Sumber Lowongan: ${data.source_portal}`;
-      }
-      return updated;
-    });
-
-    setParseSuccessMsg(`Berhasil mengekstrak entitas dari: ${fileName}`);
-    setTimeout(() => setParseSuccessMsg(null), 5000);
-  };
-
-  // Upload and parse from drag & drop / file picker
-  const handleFileUpload = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setParseErrorMsg('Hanya berkas format .PDF yang didukung.');
-      return;
-    }
-    setIsParsing(true);
-    setParseErrorMsg(null);
-    try {
-      const formPayload = new FormData();
-      formPayload.append('file', file);
-      const res = await fetch('/api/applications/upload-parse', {
-        method: 'POST',
-        body: formPayload,
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        applyParsedData(json.data, file.name);
-      } else {
-        setParseErrorMsg(json.error || 'Gagal mem-parse berkas PDF');
-      }
-    } catch (err: any) {
-      setParseErrorMsg('Terjadi kesalahan saat memproses berkas: ' + err.message);
-    } finally {
-      setIsParsing(false);
-    }
-  };
-
-  // Parse from local folder selection
-  const handleLocalFileParse = async (filePath: string) => {
-    if (!filePath) return;
-    setIsParsing(true);
-    setParseErrorMsg(null);
-    try {
-      const res = await fetch('/api/applications/upload-parse', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ localFilePath: filePath }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        const fileName = filePath.split(/[\\/]/).pop() || filePath;
-        applyParsedData(json.data, fileName);
-      } else {
-        setParseErrorMsg(json.error || 'Gagal mem-parse berkas lokal');
-      }
-    } catch (err: any) {
-      setParseErrorMsg('Terjadi kesalahan saat memproses berkas lokal: ' + err.message);
-    } finally {
-      setIsParsing(false);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,7 +124,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition shrink-0 ml-2"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition shrink-0 ml-2 cursor-pointer"
             aria-label="Tutup modal"
           >
             <X className="w-5 h-5" />
@@ -243,12 +145,16 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
               parsedResult={parsedResult}
               parseSuccessMsg={parseSuccessMsg}
               parseErrorMsg={parseErrorMsg}
+              ocrProgress={ocrProgress}
+              ocrStatus={ocrStatus}
               localFiles={localFiles}
               selectedLocalFile={selectedLocalFile}
               setSelectedLocalFile={setSelectedLocalFile}
               onFileUpload={handleFileUpload}
               onLocalFileParse={handleLocalFileParse}
-              onResetParsed={() => setParsedResult(null)}
+              onRawTextParse={handleRawTextParse}
+              onImageOcrParse={handleImageOcrParse}
+              onResetParsed={() => resetParserState()}
             />
           </div>
         </div>
@@ -264,7 +170,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+              className="px-4 py-2.5 text-xs sm:text-sm font-semibold rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.05] transition cursor-pointer"
             >
               Batal
             </button>

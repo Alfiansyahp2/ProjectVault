@@ -1,8 +1,8 @@
 import os
 import json
 from fastapi import APIRouter, HTTPException
-from ..models.resume import ParseSinglePdfRequest, ExportResumesRequest
-from ..services.nlp_engine import parse_pdf_document, scan_all_resumes
+from ..models.resume import ParseSinglePdfRequest, ExportResumesRequest, ParseRawTextRequest
+from ..services.nlp_engine import parse_pdf_document, scan_all_resumes, parse_raw_text
 
 router = APIRouter(prefix="/api/py/resumes", tags=["Local Document Intelligence & Resumes"])
 
@@ -54,3 +54,22 @@ def parse_single_pdf(payload: ParseSinglePdfRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal mem-parse PDF: {str(e)}")
+
+@router.post("/parse-text")
+def parse_raw_text_content(payload: ParseRawTextRequest):
+    """
+    Parse raw text on-demand using the local Python Document Intelligence & NLP pipeline.
+    Supports long copy-pasted text (job postings, resume text, recruiter chats, cover letters).
+    """
+    if not payload.text or not payload.text.strip():
+        raise HTTPException(status_code=400, detail="Teks masukan tidak boleh kosong.")
+
+    try:
+        result = parse_raw_text(payload.text, source_hint=payload.source_hint or "Teks Salinan")
+        return {
+            "status": "success",
+            "result": result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mem-parse teks: {str(e)}")
+

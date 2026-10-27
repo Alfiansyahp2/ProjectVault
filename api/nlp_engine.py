@@ -14,6 +14,7 @@ try:
         extract_job_title,
         extract_skills,
         generate_extractive_summary,
+        parse_raw_text,
         parse_pdf_document,
         scan_all_resumes,
     )
@@ -28,6 +29,7 @@ except ImportError:
         extract_job_title,
         extract_skills,
         generate_extractive_summary,
+        parse_raw_text,
         parse_pdf_document,
         scan_all_resumes,
     )

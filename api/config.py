@@ -14,9 +14,9 @@ CATEGORIZED_TAXONOMY = {
         "redux", "zustand", "react query", "tanstack query", "vite", "webpack", "micro-frontends"
     ],
     "Backend": [
-        "node.js", "nodejs", "express", "fastapi", "django", "flask", "nest.js", "nestjs",
-        "laravel", "spring boot", "asp.net", ".net core", "gin", "fiber", "graphql", "rest api",
-        "restful api", "grpc", "microservices", "websockets", "celery", "rabbitmq", "kafka"
+        "node.js", "nodejs", "node js", "express", "fastapi", "django", "flask", "nest.js", "nestjs",
+        "laravel", "codeigniter", "ci", "yii", "spring boot", "asp.net", ".net core", "gin", "fiber",
+        "graphql", "rest api", "restful api", "grpc", "microservices", "websockets", "celery", "rabbitmq", "kafka"
     ],
     "Databases & Cache": [
         "postgresql", "postgres", "mysql", "mongodb", "redis", "sqlite", "supabase", "firebase",
@@ -36,8 +36,9 @@ CATEGORIZED_TAXONOMY = {
         "flutter", "react native", "android", "ios", "swiftui", "jetpack compose"
     ],
     "Architecture & Quality": [
-        "clean architecture", "tdd", "ddd", "unit testing", "jest", "cypress", "playwright",
-        "agile", "scrum", "jira", "git", "github", "gitlab", "system design"
+        "clean architecture", "tdd", "ddd", "oop", "object-oriented programming", "unit testing", "jest",
+        "cypress", "playwright", "data structure", "data workflow", "agile", "scrum", "jira", "git",
+        "github", "gitlab", "system design"
     ]
 }
 
@@ -51,6 +52,7 @@ KEYWORD_SYNONYMS = {
     "nuxt.js": "nuxt",
     "tailwindcss": "tailwind",
     "nodejs": "node.js",
+    "node js": "node.js",
     "nestjs": "nest.js",
     "postgres": "postgresql",
     "google cloud": "gcp",
@@ -58,6 +60,9 @@ KEYWORD_SYNONYMS = {
     "artificial intelligence": "ai",
     "large language models": "llm",
     "restful api": "rest api",
+    "object-oriented programming": "oop",
+    "object oriented programming": "oop",
+    "ci": "codeigniter",
 }
 
 # Flattened list of all keywords for fast regex matching
@@ -84,6 +89,8 @@ MONTHS_MAP = {
 
 # Source portal classification rules
 PORTALS = [
+    ("Microsoft Forms", ["microsoft forms", "forms.cloud.microsoft", "forms.office.com", "microsoft 365", "formulir data kandidat"]),
+    ("Google Forms", ["google forms", "forms.gle", "docs.google.com/forms"]),
     ("Jobstreet", ["jobstreet", "job street", "j obstreet"]),
     ("LinkedIn", ["linkedin", "linked in"]),
     ("Glints", ["glints"]),
