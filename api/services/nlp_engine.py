@@ -7,12 +7,11 @@ from ..config import MONTHS_MAP, TECH_KEYWORDS, PORTALS, KEYWORD_SYNONYMS
 from ..models.resume import ResumeItem
 from .text_cleaner import clean_extracted_text, is_generic_or_screenshot_hint
 from .ml_parser import predict_with_ml
+from ..ml.learning_log import record_parse_event
 
 def extract_date(text: str) -> Optional[str]:
     """Extract and normalize application date from Indonesian or English date strings."""
-    pattern = r'(\d{1,2})\s+([a-zA-Z]+)\s+(202[0-9])'
-    matches = list(re.finditer(pattern, text, re.IGNORECASE))
-    for m in matches:
+    for m in re.finditer(r'(\d{1,2})\s+([a-zA-Z]+)\s+(202[0-9])', text, re.IGNORECASE):
         day_str, month_str, year_str = m.group(1), m.group(2).lower(), m.group(3)
         if month_str in MONTHS_MAP:
             return f"{year_str}-{MONTHS_MAP[month_str]}-{int(day_str):02d}"
@@ -156,15 +155,8 @@ def extract_job_metadata(text: str) -> Dict[str, Optional[str]]:
 
 def generate_extractive_summary(company: str, role: str, date: Optional[str], portal: str, skills: List[str], meta: Dict[str, Optional[str]]) -> str:
     """AI extractive summary combining entity anchors, location, salary, and skill focal points."""
-    details = []
-    if meta.get("location"):
-        details.append(f"lokasi {meta['location']}")
-    if meta.get("job_type"):
-        details.append(meta['job_type'])
-    if meta.get("salary_range"):
-        details.append(f"gaji {meta['salary_range']}")
-
-    extra_info = f" ({', '.join(details)})" if details else ""
+    details = [f"lokasi {meta['location']}" if meta.get("location") else "", meta.get("job_type") or "", f"gaji {meta['salary_range']}" if meta.get("salary_range") else ""]
+    extra_info = f" ({', '.join([d for d in details if d])})" if any(details) else ""
     skills_part = f" dengan penekanan pada stack {', '.join(skills[:5])}" if skills else ""
     date_part = f" tertanggal {date}" if date else ""
     return f"Lamaran untuk posisi {role} di {company}{extra_info}{date_part} via {portal}{skills_part}."
@@ -196,7 +188,7 @@ def parse_raw_text(raw_text: str, source_hint: str = "Teks Mentah", filepath: st
     summary = generate_extractive_summary(company, job_title, applied_date, portal, skills, meta)
     rel_path = filepath.replace("\\", "/") if filepath else f"virtual/{source_hint}"
 
-    return {
+    out_result = {
         "file_name": source_hint,
         "file_path": rel_path,
         "company_name": company,
@@ -218,6 +210,11 @@ def parse_raw_text(raw_text: str, source_hint: str = "Teks Mentah", filepath: st
             "portal_confidence": ml_res.get("portal_confidence")
         }
     }
+    try:
+        record_parse_event(cleaned_text, out_result, source_hint=source_hint)
+    except Exception:
+        pass
+    return out_result
 
 def parse_pdf_document(filepath: str) -> Dict[str, Any]:
     """Parse a single PDF document into a structured application dictionary."""

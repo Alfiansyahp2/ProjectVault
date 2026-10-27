@@ -17,13 +17,14 @@ from .features import (
     extract_role_candidates,
     featurize_role_candidate,
 )
+from .learning_log import get_valid_training_samples_from_log
 
 DEFAULT_DATA_PATH = "data/parsed_applications.json"
 FEEDBACK_DATA_PATH = "data/training_feedback.json"
 MODEL_CACHE_PATH = "api/models_cache/parser_models.joblib"
 
 def load_training_dataset(data_path: str = DEFAULT_DATA_PATH) -> List[Dict[str, Any]]:
-    """Load primary applications dataset and append user feedback corrections."""
+    """Load primary applications dataset, user feedback, and parser learning logs."""
     dataset = []
     if os.path.exists(data_path):
         with open(data_path, "r", encoding="utf-8") as f:
@@ -36,7 +37,23 @@ def load_training_dataset(data_path: str = DEFAULT_DATA_PATH) -> List[Dict[str, 
         except Exception:
             pass
 
-    return [d for d in dataset if d.get("cover_letter") and d.get("company_name") and d.get("job_title")]
+    # Append continuous training samples from persistent learning log
+    dataset.extend(get_valid_training_samples_from_log())
+
+    # Deduplicate by company, role, and text signature
+    seen, deduped = set(), []
+    for d in dataset:
+        co = d.get("company_name", "").strip().lower()
+        role = d.get("job_title", "").strip().lower()
+        text = d.get("cover_letter", "").strip()
+        if not text or not co or not role:
+            continue
+        key = (co, role, text[:80].lower())
+        if key not in seen:
+            seen.add(key)
+            deduped.append(d)
+
+    return deduped
 
 def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
     """Train Job Title, Portal, and Company Ranking models with strict ML validation."""

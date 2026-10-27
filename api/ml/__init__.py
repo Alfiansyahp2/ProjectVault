@@ -9,6 +9,7 @@ from .features import (
     featurize_role_candidate,
 )
 from .trainer import train_all_models, load_trained_models
+from .learning_log import record_parse_event, get_learning_logs, get_valid_training_samples_from_log
 
 __all__ = [
     "extract_company_candidates",
@@ -17,4 +18,8 @@ __all__ = [
     "featurize_role_candidate",
     "train_all_models",
     "load_trained_models",
+    "record_parse_event",
+    "get_learning_logs",
+    "get_valid_training_samples_from_log",
 ]
+

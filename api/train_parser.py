@@ -9,21 +9,24 @@ if BASE_DIR not in sys.path:
 
 from api.ml.trainer import train_all_models
 from api.services.ml_parser import reload_models
+from api.ml.learning_log import get_learning_logs
 
 def main():
     print("=" * 60)
     print("   PROJECTVAULT: LOCAL ML DOCUMENT PARSER TRAINING (NO API KEY)")
     print("=" * 60)
-    print("Mempersiapkan data latih dari data/parsed_applications.json...")
+    print("Mempersiapkan data latih dari data/parsed_applications.json dan log...")
 
     try:
         metadata = train_all_models()
         reload_models()
+        logs_info = get_learning_logs(limit=1)
 
         metrics = metadata["metrics"]
         print("\n[SUKSES] Pelatihan Model Machine Learning Selesai!")
         print("-" * 60)
         print(f"Total Sampel Dilatih : {metadata['sample_count']} dokumen")
+        print(f"Log Pembelajaran     : {logs_info['total_logged']} sesi ({logs_info['verified_count']} terverifikasi)")
         print(f"Distribusi Data      : {metadata['train_samples']} latih / {metadata['test_samples']} uji")
         print(f"Waktu Pelatihan      : {metadata['trained_at']}")
         print("-" * 60)

@@ -1,13 +1,14 @@
 import os
 import json
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from ..models.resume import ParseSinglePdfRequest, ExportResumesRequest, ParseRawTextRequest
 from ..services.nlp_engine import parse_pdf_document, scan_all_resumes, parse_raw_text
 from ..services.ml_parser import get_model_status, reload_models
 from ..ml.trainer import train_all_models, FEEDBACK_DATA_PATH
+from ..ml.learning_log import record_parse_event, get_learning_logs
 
 router = APIRouter(prefix="/api/py/resumes", tags=["Local Document Intelligence & Resumes"])
 
@@ -18,6 +19,9 @@ class FeedbackCorrectionRequest(BaseModel):
     source_portal: Optional[str] = "Direct / Other"
     key_skills: Optional[List[str]] = None
     file_name: Optional[str] = ""
+    location: Optional[str] = None
+    salary_range: Optional[str] = None
+    job_type: Optional[str] = None
 
 @router.get("/scan")
 def scan_resumes(base_dir: str = "data"):
@@ -72,22 +76,48 @@ def check_ml_model_status():
 
 @router.post("/train")
 def trigger_model_training():
-    """Trigger local ML model training on training data and user feedback corrections."""
+    """Trigger local ML model training on base data, feedback, and continuous learning logs."""
     try:
         metadata = train_all_models()
         reload_models()
         return {
             "status": "success",
-            "message": "Model Machine Learning berhasil dilatih ulang secara lokal.",
+            "message": "Model Machine Learning berhasil dilatih ulang dari basis data dan log.",
             "metadata": metadata
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gagal melatih model: {str(e)}")
 
+@router.get("/learning-logs")
+def view_parser_learning_logs(limit: int = Query(default=50, ge=1, le=200)):
+    """Retrieve continuous parser learning logs and learning statistics."""
+    try:
+        return {"status": "success", "data": get_learning_logs(limit=limit)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal membaca log pembelajaran: {str(e)}")
+
 @router.post("/feedback")
 def submit_feedback_correction(payload: FeedbackCorrectionRequest):
-    """Store corrected parsing results to training feedback loop for continuous active learning."""
+    """Store user-verified parse corrections into persistent learning logs and feedback store."""
     try:
+        # 1. Save to persistent parser learning log as verified ground-truth
+        log_entry = record_parse_event(
+            raw_text=payload.cover_letter,
+            result={
+                "company_name": payload.company_name,
+                "job_title": payload.job_title,
+                "source_portal": payload.source_portal,
+                "key_skills": payload.key_skills or [],
+                "location": payload.location,
+                "salary_range": payload.salary_range,
+                "job_type": payload.job_type,
+            },
+            source_hint=payload.file_name or "user_correction",
+            is_verified=True,
+            source="user_correction"
+        )
+
+        # 2. Also append to legacy feedback file
         os.makedirs(os.path.dirname(FEEDBACK_DATA_PATH), exist_ok=True)
         items = []
         if os.path.exists(FEEDBACK_DATA_PATH):
@@ -111,7 +141,8 @@ def submit_feedback_correction(payload: FeedbackCorrectionRequest):
 
         return {
             "status": "success",
-            "message": "Koreksi data berhasil disimpan ke feedback loop pelatihan.",
+            "message": "Koreksi hasil berhasil dicatat ke log pembelajaran aktif parser.",
+            "logged_sample": log_entry,
             "total_feedback": len(items)
         }
     except Exception as e:

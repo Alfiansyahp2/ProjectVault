@@ -14,7 +14,8 @@ GENERIC_HINTS = {
     "cli text input", "screenshot", "tangkapan layar", "image",
     "gambar", "virtual", "unknown", "document", "dokumen",
     "surat lamaran", "surat_lamaran", "surat-lamaran",
-    "cover letter", "cover_letter", "cover-letter"
+    "cover letter", "cover_letter", "cover-letter",
+    "test", "sample", "test_sample", "test-sample"
 }
 
 LEGAL_SUFFIXES = ("pt", "pt.", "cv", "cv.", "inc", "corp", "tbk", "ltd", "technologies", "studio", "group")
@@ -24,7 +25,7 @@ def is_generic_filename(name: str) -> bool:
     if not name:
         return True
     nl = name.strip().lower()
-    if nl in GENERIC_HINTS or nl.startswith(('virtual/', 'gambar:', 'tmp_', 'tmp-')):
+    if nl in GENERIC_HINTS or nl.startswith(('virtual/', 'gambar:', 'tmp_', 'tmp-', 'test_', 'test-')):
         return True
     if re.search(r'\b(?:screenshot|screencapture|screen_shot|tangkapan\s*layar|scan_\d+)\b', nl):
         return True
@@ -51,7 +52,7 @@ def extract_company_candidates(text: str, filename: str = "") -> List[str]:
 
     # 2. Legal entity pattern matches
     pt_matches = re.findall(
-        r'\b(?:PT\.?\s+[A-Z][a-zA-Z0-9\s,&.-]{2,35}|CV\.?\s+[A-Z][a-zA-Z0-9\s,&.-]{2,35}|[A-Z][a-zA-Z0-9\s]{2,30}\s+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group|Technologies|Studio))\b',
+        r'\b(?:PT\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|CV\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|[A-Z][a-zA-Z0-9\s]{2,30}\s+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group|Technologies|Studio))\b',
         text
     )
     for m in pt_matches:
@@ -69,7 +70,7 @@ def extract_company_candidates(text: str, filename: str = "") -> List[str]:
                     candidates.append(subline)
 
     # 4. Sequences starting with 'di' or 'at'
-    di_matches = re.findall(r'\b(?:di|at)\s+([A-Z][A-Za-z0-9\s,&.-]{3,35})\b', text)
+    di_matches = re.findall(r'\b(?:di|at)\s+([A-Z][A-Za-z0-9\s,&-]{3,35})\b', text)
     for m in di_matches:
         cand = normalize_text(m)
         if len(cand) > 3 and len(cand.split()) <= 5:
