@@ -80,6 +80,22 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
       return;
     }
 
+    // Non-blocking active learning log feedback trigger
+    if (formData.coverLetter && formData.companyName && formData.jobTitle) {
+      fetch('/api/py/resumes/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cover_letter: formData.coverLetter.trim(),
+          company_name: formData.companyName.trim(),
+          job_title: formData.jobTitle.trim(),
+          source_portal: formData.notes?.includes('Jobstreet') ? 'Jobstreet' : 'Direct / Other',
+          file_name: parsedResult?.sourceFileName || 'user_saved_form',
+          salary_range: formData.salaryRange.trim() || undefined,
+        }),
+      }).catch(() => {});
+    }
+
     onSave({
       id: initialData?.id || '',
       company_name: formData.companyName.trim(),

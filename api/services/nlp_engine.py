@@ -6,12 +6,12 @@ import pypdf
 from ..config import MONTHS_MAP, TECH_KEYWORDS, PORTALS, KEYWORD_SYNONYMS
 from ..models.resume import ResumeItem
 from .text_cleaner import clean_extracted_text, is_generic_or_screenshot_hint
+from .ml_parser import predict_with_ml
+from ..ml.learning_log import record_parse_event
 
 def extract_date(text: str) -> Optional[str]:
     """Extract and normalize application date from Indonesian or English date strings."""
-    pattern = r'(\d{1,2})\s+([a-zA-Z]+)\s+(202[0-9])'
-    matches = list(re.finditer(pattern, text, re.IGNORECASE))
-    for m in matches:
+    for m in re.finditer(r'(\d{1,2})\s+([a-zA-Z]+)\s+(202[0-9])', text, re.IGNORECASE):
         day_str, month_str, year_str = m.group(1), m.group(2).lower(), m.group(3)
         if month_str in MONTHS_MAP:
             return f"{year_str}-{MONTHS_MAP[month_str]}-{int(day_str):02d}"
@@ -34,7 +34,7 @@ def clean_company_name(name: str, applicant_name: Optional[str] = None) -> str:
 
     name = re.sub(r'[-_]?\s*(?:cv|resume|portfolio|portofolio|kandidat|pelamar|applicant|candidate|surat\s*lamaran).*$', '', name, flags=re.IGNORECASE).strip()
     name = re.sub(r'[-_]?\s*alfiansyah.*$', '', name, flags=re.IGNORECASE).strip()
-    name = re.split(r'\b(?:jln\.?|jl\.?|jalan|gedung|lantai|no\.\s*\d+)\b', name, flags=re.IGNORECASE)[0].strip(' ,.-')
+    name = re.split(r'\b(?:jln\.?|jl\.?|jalan|gedung|lantai|no\.\s*\d+|di\s+[A-Za-z]+|at\s+[A-Za-z]+)\b', name, flags=re.IGNORECASE)[0].strip(' ,.-')
     name = re.sub(r'^(?:hrd\s*(?:[/,&]\s*tim\s*rekrutmen)?\s*|panitia\s*rekrutmen\s*pjlp\s*|yth\.?\s*)', '', name, flags=re.IGNORECASE).strip(' ,.-')
     return name
 
@@ -57,18 +57,12 @@ def extract_company(text: str, filename: str) -> str:
             return cand
 
     lines = [l.strip() for l in text.split('\n') if l.strip()]
-    for i, line in enumerate(lines):
+    for i, line in enumerate(lines[:15]):
         if 'kepada yth' in line.lower():
-            for j in range(i + 1, min(i + 5, len(lines))):
-                candidate = lines[j]
-                if any(x in candidate.lower() for x in ['pt', 'cv', 'sdn bhd', 'tbk', 'group', 'indonesia', 'tech', 'studio']):
-                    cand = clean_company_name(candidate)
-                    if cand and len(cand) > 3:
-                        return cand
-                if 'hrd ' in candidate.lower():
-                    cand = clean_company_name(candidate)
-                    if len(cand) > 2:
-                        return cand
+            for j in range(i + 1, min(i + 4, len(lines))):
+                cand = clean_company_name(lines[j])
+                if cand and len(cand) > 3:
+                    return cand
 
     di_match = re.search(r'\b(?:di|at)\s+(PT\.?\s+[A-Z][a-zA-Z0-9\s]+|CV\.?\s+[A-Z][a-zA-Z0-9\s]+|[A-Z][a-zA-Z0-9\s]+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group))', text)
     if di_match:
@@ -114,30 +108,17 @@ def extract_job_title(text: str) -> str:
                 return cand
 
     first_block = " ".join(text.split()[:250]).lower()
-    common_roles = [
-        ("Full Stack Developer", ["full stack developer", "fullstack developer", "full stack web developer"]),
-        ("Backend Developer", ["backend developer", "back-end developer", "back end developer"]),
-        ("Frontend Developer", ["frontend developer", "front-end developer", "front end developer"]),
-        ("Software Engineer", ["software engineer"]),
-        ("Programmer", ["programmer", "junior programmer", "middle programmer"]),
-        ("Mobile Developer", ["mobile developer", "mobile developer staff", "android developer"]),
-    ]
-    for role_name, synonyms in common_roles:
-        for syn in synonyms:
-            if syn in first_block:
-                return role_name
-
-    text_lower = text.lower()
-    scores = {"Backend Developer": 0, "Frontend Developer": 0, "Full Stack Developer": 0}
-    for cue in ["backend", "back-end", "application's backend", "application backend", "php", "laravel", "codeigniter", "ci/laravel", "node.js", "mysql", "sql"]:
-        if cue in text_lower:
-            scores["Backend Developer"] += 1
-    for cue in ["frontend", "front-end", "application's frontend", "ui/ux", "react", "vue", "tailwind", "css"]:
-        if cue in text_lower:
-            scores["Frontend Developer"] += 1
-
-    best_role, best_score = max(scores.items(), key=lambda x: x[1])
-    return best_role if best_score >= 2 else "Software Engineer"
+    for role, syns in [
+        ("Full Stack Developer", ["full stack developer", "fullstack developer"]),
+        ("Backend Developer", ["backend developer", "back-end developer", "application's backend", "backend"]),
+        ("Frontend Developer", ["frontend developer", "front-end developer", "frontend"]),
+        ("Mobile Developer", ["mobile developer", "android developer", "flutter developer"]),
+        ("Software Engineer", ["software engineer", "software developer"]),
+        ("Programmer", ["programmer", "junior programmer"])
+    ]:
+        if any(s in first_block for s in syns):
+            return role
+    return "Software Engineer"
 
 def extract_skills(text: str) -> List[str]:
     """Extract technical keywords based on taxonomy ontology with false-positive prevention."""
@@ -174,15 +155,8 @@ def extract_job_metadata(text: str) -> Dict[str, Optional[str]]:
 
 def generate_extractive_summary(company: str, role: str, date: Optional[str], portal: str, skills: List[str], meta: Dict[str, Optional[str]]) -> str:
     """AI extractive summary combining entity anchors, location, salary, and skill focal points."""
-    details = []
-    if meta.get("location"):
-        details.append(f"lokasi {meta['location']}")
-    if meta.get("job_type"):
-        details.append(meta['job_type'])
-    if meta.get("salary_range"):
-        details.append(f"gaji {meta['salary_range']}")
-
-    extra_info = f" ({', '.join(details)})" if details else ""
+    details = [f"lokasi {meta['location']}" if meta.get("location") else "", meta.get("job_type") or "", f"gaji {meta['salary_range']}" if meta.get("salary_range") else ""]
+    extra_info = f" ({', '.join([d for d in details if d])})" if any(details) else ""
     skills_part = f" dengan penekanan pada stack {', '.join(skills[:5])}" if skills else ""
     date_part = f" tertanggal {date}" if date else ""
     return f"Lamaran untuk posisi {role} di {company}{extra_info}{date_part} via {portal}{skills_part}."
@@ -197,11 +171,24 @@ def parse_raw_text(raw_text: str, source_hint: str = "Teks Mentah", filepath: st
     portal = extract_portal(cleaned_text)
     skills = extract_skills(cleaned_text)
     meta = extract_job_metadata(cleaned_text)
-    summary = generate_extractive_summary(company, job_title, applied_date, portal, skills, meta)
 
+    # Local ML model inference refinement (Zero Cloud API)
+    ml_res = predict_with_ml(cleaned_text, filename=source_hint)
+    if ml_res.get("ml_available"):
+        ml_co = ml_res.get("company_name")
+        if ml_co and (company in ["Perusahaan", "Perusahaan (Formulir Lowongan)"] or ml_res.get("company_confidence", 0) > 0.45):
+            company = clean_company_name(ml_co)
+        ml_role = ml_res.get("job_title")
+        if ml_role and (job_title == "Software Engineer" or ml_res.get("job_title_confidence", 0) > 0.40):
+            job_title = ml_role
+        ml_portal = ml_res.get("source_portal")
+        if ml_portal and portal in ["Direct / Other", "Direct / Job Portal"] and ml_res.get("portal_confidence", 0) > 0.50:
+            portal = ml_portal
+
+    summary = generate_extractive_summary(company, job_title, applied_date, portal, skills, meta)
     rel_path = filepath.replace("\\", "/") if filepath else f"virtual/{source_hint}"
 
-    return {
+    out_result = {
         "file_name": source_hint,
         "file_path": rel_path,
         "company_name": company,
@@ -215,8 +202,19 @@ def parse_raw_text(raw_text: str, source_hint: str = "Teks Mentah", filepath: st
         "summary": summary,
         "status": "applied",
         "cover_letter_preview": cleaned_text[:350].strip(),
-        "cover_letter": cleaned_text.strip()
+        "cover_letter": cleaned_text.strip(),
+        "ml_meta": {
+            "is_ml_active": ml_res.get("ml_available", False),
+            "company_confidence": ml_res.get("company_confidence"),
+            "job_title_confidence": ml_res.get("job_title_confidence"),
+            "portal_confidence": ml_res.get("portal_confidence")
+        }
     }
+    try:
+        record_parse_event(cleaned_text, out_result, source_hint=source_hint)
+    except Exception:
+        pass
+    return out_result
 
 def parse_pdf_document(filepath: str) -> Dict[str, Any]:
     """Parse a single PDF document into a structured application dictionary."""
