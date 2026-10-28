@@ -37,8 +37,12 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
     setSelectedLocalFile,
     parseSuccessMsg,
     parseErrorMsg,
+    ocrProgress,
+    ocrStatus,
     handleFileUpload,
     handleLocalFileParse,
+    handleRawTextParse,
+    handleImageOcrParse,
     resetParserState,
   } = useResumeParser(isOpen, setFormData);
 
@@ -74,6 +78,21 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
     if (!formData.companyName.trim() || !formData.jobTitle.trim()) {
       alert('Nama perusahaan dan posisi pekerjaan wajib diisi.');
       return;
+    }
+
+    // Non-blocking active learning log feedback trigger
+    if (formData.coverLetter && formData.companyName && formData.jobTitle) {
+      fetch('/api/py/resumes/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cover_letter: formData.coverLetter.trim(),
+          company_name: formData.companyName.trim(),
+          source_portal: parsedResult?.source_portal || (formData.notes?.includes('Jobstreet') ? 'Jobstreet' : 'Direct / Other'),
+          file_name: parsedResult?.sourceFileName || 'user_saved_form',
+          salary_range: formData.salaryRange.trim() || undefined,
+        }),
+      }).catch(() => {});
     }
 
     onSave({
@@ -141,11 +160,15 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
               parsedResult={parsedResult}
               parseSuccessMsg={parseSuccessMsg}
               parseErrorMsg={parseErrorMsg}
+              ocrProgress={ocrProgress}
+              ocrStatus={ocrStatus}
               localFiles={localFiles}
               selectedLocalFile={selectedLocalFile}
               setSelectedLocalFile={setSelectedLocalFile}
               onFileUpload={handleFileUpload}
               onLocalFileParse={handleLocalFileParse}
+              onRawTextParse={handleRawTextParse}
+              onImageOcrParse={handleImageOcrParse}
               onResetParsed={() => resetParserState()}
             />
           </div>

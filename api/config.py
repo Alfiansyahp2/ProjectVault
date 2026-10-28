@@ -14,9 +14,9 @@ CATEGORIZED_TAXONOMY = {
         "redux", "zustand", "react query", "tanstack query", "vite", "webpack", "micro-frontends"
     ],
     "Backend": [
-        "node.js", "nodejs", "express", "fastapi", "django", "flask", "nest.js", "nestjs",
-        "laravel", "spring boot", "asp.net", ".net core", "gin", "fiber", "graphql", "rest api",
-        "restful api", "grpc", "microservices", "websockets", "celery", "rabbitmq", "kafka"
+        "node.js", "nodejs", "node js", "express", "fastapi", "django", "flask", "nest.js", "nestjs",
+        "laravel", "codeigniter", "ci", "yii", "spring boot", "asp.net", ".net core", "gin", "fiber",
+        "graphql", "rest api", "restful api", "grpc", "microservices", "websockets", "celery", "rabbitmq", "kafka"
     ],
     "Databases & Cache": [
         "postgresql", "postgres", "mysql", "mongodb", "redis", "sqlite", "supabase", "firebase",
@@ -36,8 +36,9 @@ CATEGORIZED_TAXONOMY = {
         "flutter", "react native", "android", "ios", "swiftui", "jetpack compose"
     ],
     "Architecture & Quality": [
-        "clean architecture", "tdd", "ddd", "unit testing", "jest", "cypress", "playwright",
-        "agile", "scrum", "jira", "git", "github", "gitlab", "system design"
+        "clean architecture", "tdd", "ddd", "oop", "object-oriented programming", "unit testing", "jest",
+        "cypress", "playwright", "data structure", "data workflow", "agile", "scrum", "jira", "git",
+        "github", "gitlab", "system design"
     ]
 }
 
@@ -51,6 +52,7 @@ KEYWORD_SYNONYMS = {
     "nuxt.js": "nuxt",
     "tailwindcss": "tailwind",
     "nodejs": "node.js",
+    "node js": "node.js",
     "nestjs": "nest.js",
     "postgres": "postgresql",
     "google cloud": "gcp",
@@ -58,6 +60,9 @@ KEYWORD_SYNONYMS = {
     "artificial intelligence": "ai",
     "large language models": "llm",
     "restful api": "rest api",
+    "object-oriented programming": "oop",
+    "object oriented programming": "oop",
+    "ci": "codeigniter",
 }
 
 # Flattened list of all keywords for fast regex matching
@@ -84,6 +89,8 @@ MONTHS_MAP = {
 
 # Source portal classification rules
 PORTALS = [
+    ("Microsoft Forms", ["microsoft forms", "forms.cloud.microsoft", "forms.office.com", "microsoft 365", "formulir data kandidat"]),
+    ("Google Forms", ["google forms", "forms.gle", "docs.google.com/forms"]),
     ("Jobstreet", ["jobstreet", "job street", "j obstreet"]),
     ("LinkedIn", ["linkedin", "linked in"]),
     ("Glints", ["glints"]),
@@ -94,3 +101,35 @@ PORTALS = [
     ("Career Website", ["website resmi", "situs resmi", "career site"]),
     ("Direct / Email", ["email", "surel"])
 ]
+
+import os
+import json
+from typing import Any
+
+# Standard project-level paths independent of working directory
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+PARSED_APPLICATIONS_PATH = os.path.join(DATA_DIR, "parsed_applications.json")
+FEEDBACK_DATA_PATH = os.path.join(DATA_DIR, "training_feedback.json")
+LEARNING_LOG_PATH = os.path.join(DATA_DIR, "parser_learning_log.json")
+MODEL_CACHE_PATH = os.path.join(BASE_DIR, "api", "models_cache", "parser_models.joblib")
+
+def atomic_write_json(file_path: str, data: Any, indent: int = 2) -> None:
+    """Safely write JSON data to disk using temporary file and atomic replace."""
+    dir_name = os.path.dirname(os.path.abspath(file_path))
+    os.makedirs(dir_name, exist_ok=True)
+    temp_file = os.path.join(dir_name, f".tmp_{os.path.basename(file_path)}.{os.getpid()}")
+    try:
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=indent, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_file, file_path)
+    except Exception:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
+        raise
+

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Briefcase, Sparkles, AlertCircle, ClipboardPaste, RotateCcw, Zap } from 'lucide-react';
+import { Briefcase, Sparkles, AlertCircle, Zap } from 'lucide-react';
 import { JobAnalyzerFormData } from '../types';
 import { SAMPLE_JOB_PRESETS, TONE_OPTIONS, LANGUAGE_OPTIONS } from '../constants';
+import { JobInputMediaMenu } from './JobInputMediaMenu';
 
 interface JobInputCardProps {
   formData: JobAnalyzerFormData;
@@ -31,17 +32,6 @@ export const JobInputCard: React.FC<JobInputCardProps> = ({
     setFormData(preset.data);
   };
 
-  const handlePasteClipboard = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        updateField('jobDescription', text);
-      }
-    } catch {
-      // Ignore clipboard permission errors silently
-    }
-  };
-
   const handleResetForm = () => {
     setActivePresetId(null);
     setFormData({
@@ -59,34 +49,20 @@ export const JobInputCard: React.FC<JobInputCardProps> = ({
   return (
     <div className="glass-card rounded-2xl p-5 sm:p-6 border border-white/[0.08] shadow-2xl space-y-4">
       {/* Header and Quick Actions */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-        <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] gap-2">
+        <h2 className="text-sm sm:text-base font-bold text-white flex items-center gap-2 shrink-0">
+          <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shrink-0">
             <Briefcase className="w-4 h-4" />
           </div>
-          <span>Informasi Lowongan</span>
+          <span className="whitespace-nowrap">Informasi Lowongan</span>
         </h2>
 
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handlePasteClipboard}
-            title="Tempel teks dari Clipboard"
-            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-300 hover:text-indigo-400 hover:bg-white/[0.06] transition cursor-pointer"
-          >
-            <ClipboardPaste className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Tempel</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleResetForm}
-            title="Bersihkan isi form"
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg text-slate-400 hover:text-rose-400 hover:bg-white/[0.06] transition cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
-        </div>
+        <JobInputMediaMenu
+          onInsertText={text => updateField('jobDescription', text)}
+          onSetJobTitle={title => updateField('jobTitle', title)}
+          onSetCompanyName={company => updateField('companyName', company)}
+          onReset={handleResetForm}
+        />
       </div>
 
       {/* Preset Quick Chips */}
