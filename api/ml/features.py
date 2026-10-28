@@ -39,7 +39,8 @@ def normalize_text(text: str) -> str:
 def extract_company_candidates(text: str, filename: str = "") -> List[str]:
     """Extract potential company name candidates using structural patterns."""
     candidates = []
-    lines = [l.strip() for l in text.split('\n') if l.strip()]
+    scan_text = (text or "")[:12000]
+    lines = [l.strip() for l in scan_text.split('\n') if l.strip()]
 
     # 1. Filename candidate only if not generic
     if filename and not is_generic_filename(filename):
@@ -53,7 +54,7 @@ def extract_company_candidates(text: str, filename: str = "") -> List[str]:
     # 2. Legal entity pattern matches
     pt_matches = re.findall(
         r'\b(?:PT\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|CV\.?\s+[A-Z][a-zA-Z0-9\s,&-]{2,35}|[A-Z][a-zA-Z0-9\s]{2,30}\s+(?:Sdn\s+Bhd|Tbk|Inc|Corp|Group|Technologies|Studio))\b',
-        text
+        scan_text
     )
     for m in pt_matches:
         cand = normalize_text(m)
@@ -70,7 +71,7 @@ def extract_company_candidates(text: str, filename: str = "") -> List[str]:
                     candidates.append(subline)
 
     # 4. Sequences starting with 'di' or 'at'
-    di_matches = re.findall(r'\b(?:di|at)\s+([A-Z][A-Za-z0-9\s,&-]{3,35})\b', text)
+    di_matches = re.findall(r'\b(?:di|at)\s+([A-Z][A-Za-z0-9\s,&-]{3,35})\b', scan_text)
     for m in di_matches:
         cand = normalize_text(m)
         if len(cand) > 3 and len(cand.split()) <= 5:
@@ -126,8 +127,9 @@ def featurize_company_candidate(candidate: str, text: str, filename: str = "") -
 def extract_role_candidates(text: str) -> List[str]:
     """Extract potential target job title candidates from document text."""
     cands = []
+    scan_text = (text or "")[:12000]
     # 1. Perihal pattern (stop strictly at newline or period)
-    m = re.search(r'Perihal:\s*Lamaran\s*Pekerjaan\s*[-–—]?\s*([^\n\r.]+)', text, re.IGNORECASE)
+    m = re.search(r'Perihal:\s*Lamaran\s*Pekerjaan\s*[-–—]?\s*([^\n\r.]+)', scan_text, re.IGNORECASE)
     if m:
         cands.append(m.group(1).strip())
 
@@ -142,7 +144,7 @@ def extract_role_candidates(text: str) -> List[str]:
         r'\b(Mobile\s+Developer|Android\s+Developer|Flutter\s+Developer)\b'
     ]
     for p in patterns:
-        for match in re.finditer(p, text, re.IGNORECASE):
+        for match in re.finditer(p, scan_text, re.IGNORECASE):
             cands.append(match.group(1).strip())
 
     res, seen = [], set()
@@ -161,7 +163,7 @@ def featurize_role_candidate(cand: str, text: str) -> List[float]:
     text_len = max(len(text), 1)
 
     pos_ratio = (idx / text_len) if idx >= 0 else 1.0
-    in_perihal = 1.0 if ('perihal' in text_l[:idx] and idx < 250) else 0.0
+    in_perihal = 1.0 if (0 <= idx < 250 and 'perihal' in text_l[:idx]) else 0.0
 
     ctx_before = text_l[max(0, idx - 50):idx] if idx >= 0 else ""
     preceded_posisi = 1.0 if any(k in ctx_before for k in ['posisi', 'sebagai', 'melamar', 'pada']) else 0.0

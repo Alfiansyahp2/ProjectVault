@@ -10,6 +10,11 @@ export const dynamic = 'force-dynamic';
 
 const execPromise = util.promisify(exec);
 
+function getPythonBin(cwd: string) {
+  const venv = path.join(cwd, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+  return fs.existsSync(venv) ? `"${venv}"` : 'python';
+}
+
 export async function POST(req: NextRequest) {
   try {
     const cwd = process.cwd();
@@ -30,7 +35,7 @@ export async function POST(req: NextRequest) {
     const rawLimit = Number(body?.resetLimit);
     const resetLimit = Number.isInteger(rawLimit) && rawLimit > 0 ? rawLimit : 25;
 
-    let cmd = `python "${parserScript.replace(/\\/g, '/')}"`;
+    let cmd = `${getPythonBin(cwd)} "${parserScript.replace(/\\/g, '/')}"`;
 
     if (isReset) {
       cmd += ` --reset ${resetLimit}`;
@@ -195,7 +200,7 @@ export async function GET() {
     }
 
     if (fs.existsSync(parserScript)) {
-      const { stdout } = await execPromise(`python "${parserScript.replace(/\\/g, '/')}" --status`, { cwd });
+      const { stdout } = await execPromise(`${getPythonBin(cwd)} "${parserScript.replace(/\\/g, '/')}" --status`, { cwd });
       const statusData = JSON.parse(stdout.trim());
       return NextResponse.json({
         status: 'ready',
