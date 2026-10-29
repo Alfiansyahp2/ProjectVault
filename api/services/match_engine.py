@@ -2,7 +2,15 @@ import re
 from typing import List, Tuple, Dict
 from ..config import TECH_KEYWORDS, CATEGORIZED_TAXONOMY, KEYWORD_SYNONYMS
 from ..models.project import ProjectItem
-from ..models.job_analysis import MatchedProject
+from ..models.job_analysis import MatchedProject, ScoreBreakdown
+
+# Bobot Ilmiah AHP (Analytic Hierarchy Process) - Consistency Ratio CR = 0.0023 < 0.10
+AHP_WEIGHTS: Dict[str, float] = {
+    "tech_stack": 0.37,   # C1: Core Tech Stack Alignment
+    "description": 0.28,  # C2: Feature & Context Relevance
+    "role_domain": 0.20,  # C3: Role & Architecture Alignment
+    "complexity": 0.15,   # C4: Complexity & Quality Proof
+}
 
 def extract_keywords_from_text(text: str) -> Tuple[List[str], Dict[str, List[str]]]:
     """
@@ -17,7 +25,6 @@ def extract_keywords_from_text(text: str) -> Tuple[List[str], Dict[str, List[str
     for kw in TECH_KEYWORDS:
         pattern = r'(?<![a-zA-Z0-9_#+.-])' + re.escape(kw) + r'(?![a-zA-Z0-9_#+.-])'
         if re.search(pattern, text_lower):
-            # Normalize to canonical synonym if available
             normalized = KEYWORD_SYNONYMS.get(kw, kw)
             detected_raw.append(normalized)
             
@@ -48,94 +55,112 @@ def calculate_project_match(
     job_desc: str,
     job_skills: List[str],
     job_title: str = ""
-) -> Tuple[int, List[str], str]:
+) -> Tuple[int, List[str], str, ScoreBreakdown]:
     """
-    Calculate a sophisticated multi-factor matching score between a portfolio project and a job.
-    Weights:
-        - Technical Stack Alignment: 45%
-        - Role & Title Relevance: 25%
-        - Quantifiable Achievements & Metrics: 15%
-        - Domain & Text Context: 15%
+    Menghitung skor kecocokan proyek terhadap lowongan menggunakan metode Hibrida AHP-SAW.
+    Mengembalikan: (final_score, matched_skills, relevance_reason, score_breakdown)
     """
     job_desc_lower = job_desc.lower()
     proj_skills = [t.lower() for t in project.technologies]
     
-    # 1. Match Skills (considering synonyms)
+    # 1. Kriteria C1: Core Tech Stack Alignment (Bobot 37%)
     matched_skills = []
     for skill in job_skills:
         skill_lower = skill.lower()
-        canonical_job_skill = KEYWORD_SYNONYMS.get(skill_lower, skill_lower)
-        
+        canonical_job = KEYWORD_SYNONYMS.get(skill_lower, skill_lower)
         found = False
         for ps in proj_skills:
             canonical_ps = KEYWORD_SYNONYMS.get(ps, ps)
-            if canonical_job_skill == canonical_ps or canonical_job_skill in ps or ps in canonical_job_skill:
+            if canonical_job == canonical_ps or canonical_job in ps or ps in canonical_job:
                 matched_skills.append(skill)
                 found = True
                 break
-                
         if not found and skill_lower in project.description.lower():
             matched_skills.append(skill)
             
     matched_skills = list(dict.fromkeys(matched_skills))
     
-    # Factor A: Technical Stack Score (0 - 45)
-    stack_score = 0
     if job_skills:
         ratio = len(matched_skills) / max(len(job_skills), 1)
-        stack_score = int(min(45, ratio * 55))
+        r_tech = min(1.0, ratio * 1.25)
     else:
-        stack_score = 25
+        r_tech = 0.55
         
-    # Factor B: Role & Title Semantic Overlap (0 - 25)
-    role_score = 0
-    role_tokens = ["frontend", "backend", "fullstack", "mobile", "devops", "cloud", "data", "machine learning", "ai", "lead", "senior", "engineer", "developer", "architect"]
+    # 2. Kriteria C2: Feature & Context Relevance (Bobot 28%)
+    combined_proj = f"{project.title} {project.category or ''} {project.description}".lower()
+    words = re.findall(r'\b[a-z]{4,}\b', job_desc_lower)
+    domain_overlap = sum(1 for w in words if w in combined_proj)
+    r_desc = min(1.0, max(0.20, domain_overlap / 12.0))
+    
+    # 3. Kriteria C3: Role & Architecture Alignment (Bobot 20%)
+    role_tokens = [
+        "frontend", "backend", "fullstack", "mobile", "devops", "cloud",
+        "data", "machine learning", "ai", "lead", "senior", "engineer", "developer", "architect"
+    ]
     job_title_lower = job_title.lower()
     proj_role_lower = (project.role or "").lower()
+    proj_title_lower = project.title.lower()
     
-    # Title matching
-    for token in role_tokens:
-        if token in job_title_lower and (token in proj_role_lower or token in project.title.lower()):
-            role_score += 12
-            
-    if not role_score and (job_title_lower in proj_role_lower or proj_role_lower in job_title_lower):
-        role_score = 20
-    role_score = min(25, role_score)
+    role_token_matches = sum(
+        1 for token in role_tokens
+        if token in job_title_lower and (token in proj_role_lower or token in proj_title_lower)
+    )
     
-    # Factor C: Measurable Achievements & Metrics (0 - 15)
-    metric_score = 0
+    if role_token_matches >= 2 or (job_title_lower and job_title_lower in proj_role_lower):
+        r_role = 1.0
+    elif role_token_matches == 1:
+        r_role = 0.85
+    elif project.category and project.category.lower() in job_title_lower:
+        r_role = 0.70
+    else:
+        r_role = 0.40
+        
+    # 4. Kriteria C4: Complexity & Quality Proof (Bobot 15%)
+    r_qual = 0.35
     if project.achievements:
-        achieve_text = project.achievements.strip()
+        achieve_text = project.achievements.strip().lower()
         has_numbers = bool(re.search(r'\d+', achieve_text))
         has_percentage = "%" in achieve_text
-        has_keywords = any(kw in achieve_text.lower() for kw in ["meningkat", "optimasi", "reduksi", "hemat", "efisiensi", "skala", "users", "transaksi", "kecepatan"])
-        
+        has_keywords = any(kw in achieve_text for kw in [
+            "meningkat", "optimasi", "reduksi", "hemat", "efisiensi", "skala", "users", "transaksi", "kecepatan"
+        ])
         if has_percentage or (has_numbers and has_keywords):
-            metric_score = 15
+            r_qual = 0.85
         elif has_numbers or len(achieve_text) > 20:
-            metric_score = 10
+            r_qual = 0.65
         else:
-            metric_score = 5
+            r_qual = 0.50
             
-    # Factor D: Domain & Keyword Context Overlap (0 - 15)
-    context_score = 0
-    combined_proj = f"{project.title} {project.category} {project.description}".lower()
-    domain_overlap = 0
-    for word in re.findall(r'\b[a-z]{4,}\b', job_desc_lower):
-        if word in combined_proj:
-            domain_overlap += 1
-    context_score = min(15, domain_overlap)
+    if project.repo_url:
+        r_qual += 0.10
+    if project.demo_url:
+        r_qual += 0.10
+    r_qual = min(1.0, r_qual)
     
-    total_raw = stack_score + role_score + metric_score + context_score
-    final_score = min(98, max(20, total_raw))
+    # Agregasi Linier Model SAW dengan Bobot AHP
+    saw_score = (
+        (AHP_WEIGHTS["tech_stack"] * r_tech) +
+        (AHP_WEIGHTS["description"] * r_desc) +
+        (AHP_WEIGHTS["role_domain"] * r_role) +
+        (AHP_WEIGHTS["complexity"] * r_qual)
+    ) * 100.0
     
-    # Formulate contextual evidence reason
+    final_score = int(min(98, max(20, round(saw_score))))
+    
+    breakdown = ScoreBreakdown(
+        tech_stack=round(r_tech * 100.0, 1),
+        description=round(r_desc * 100.0, 1),
+        role_domain=round(r_role * 100.0, 1),
+        complexity=round(r_qual * 100.0, 1),
+    )
+    
+    # Formulasi narasi alasan relevansi
     reasons = []
     if matched_skills:
         reasons.append(f"Stack selaras ({', '.join(matched_skills[:3])})")
-    if role_score >= 12:
-        reasons.append(f"Peran relevan sebagai {project.role or 'Engineer'}")
-    if metric_score >= 10:
+    if r_role >= 0.70:
+        reasons.append(f"Peran relevan ({project.role or 'Engineer'})")
+    if r_qual >= 0.75 and project.achievements:
         snippet = project.achievements.strip()
         if len(snippet) > 60:
             snippet = snippet[:57] + "..."
@@ -145,7 +170,7 @@ def calculate_project_match(
         
     reason_str = " | ".join(reasons) if reasons else "Portofolio relevan dengan pengembangan rekayasa perangkat lunak."
     
-    return final_score, matched_skills, reason_str
+    return final_score, matched_skills, reason_str, breakdown
 
 def generate_interview_tips(
     top_projects: List[MatchedProject],

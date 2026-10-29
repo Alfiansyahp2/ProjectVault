@@ -33,11 +33,19 @@ export interface JobApplication {
   createdAt?: string;
 }
 
+export interface ScoreBreakdown {
+  tech_stack: number;
+  description: number;
+  role_domain: number;
+  complexity: number;
+}
+
 export interface MatchedProject {
   project: Project;
   match_score: number;
   matched_skills: string[];
   relevance_reason: string;
+  score_breakdown?: ScoreBreakdown;
 }
 
 export interface AnalysisResult {
