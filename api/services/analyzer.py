@@ -32,7 +32,7 @@ def analyze_job_posting(payload: AnalyzeJobRequest) -> AnalyzeJobResponse:
     all_user_skills: List[str] = []
     
     for proj in payload.projects:
-        score, matched_kw, reason = calculate_project_match(
+        score, matched_kw, reason, breakdown = calculate_project_match(
             project=proj,
             job_desc=payload.job_description,
             job_skills=detected_skills,
@@ -42,7 +42,8 @@ def analyze_job_posting(payload: AnalyzeJobRequest) -> AnalyzeJobResponse:
             project=proj,
             match_score=score,
             matched_skills=matched_kw,
-            relevance_reason=reason
+            relevance_reason=reason,
+            score_breakdown=breakdown
         ))
         for t in proj.technologies:
             all_user_skills.append(t.lower())

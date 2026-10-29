@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, Flame, Sparkles, ExternalLink, Award, ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { CheckCircle2, Flame, Sparkles, Award, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { AnalysisResult } from '@/lib/types';
 import { MatchScoreGauge, getScoreTheme } from './MatchScoreGauge';
+import { MatchedProjectCard } from './MatchedProjectCard';
 
 interface SkillsMatchBreakdownProps {
   result: AnalysisResult;
@@ -184,62 +185,7 @@ export const SkillsMatchBreakdown: React.FC<SkillsMatchBreakdownProps> = ({ resu
 
         <div className="space-y-2.5">
           {result.matched_projects.slice(0, 3).map((mp, i) => (
-            <div
-              key={i}
-              className="p-3.5 rounded-xl border border-white/[0.08] bg-slate-950/60 hover:border-white/20 transition space-y-2"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-sm text-white flex items-center gap-2 flex-wrap">
-                    <span>{i + 1}. {mp.project.title}</span>
-                    {mp.project.role && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-900 border border-white/10 text-slate-300 font-medium">
-                        {mp.project.role}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-300 mt-1 line-clamp-2">
-                    {mp.project.description}
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="inline-block text-[11px] px-2 py-0.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold">
-                    Skor {mp.match_score}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Matched Stack Pills & Reason */}
-              <div className="pt-1.5 border-t border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <div className="text-[11px] text-slate-400 flex items-center gap-1 flex-wrap">
-                  <span className="font-medium text-slate-300">Alasan Relevansi:</span> {mp.relevance_reason}
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {mp.project.repo_url && (
-                    <a
-                      href={mp.project.repo_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-0.5"
-                    >
-                      Repo <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  )}
-                  {mp.project.demo_url && (
-                    <a
-                      href={mp.project.demo_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-0.5"
-                    >
-                      Demo <ExternalLink className="w-2.5 h-2.5" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            </div>
+            <MatchedProjectCard key={i} index={i} matchedProject={mp} />
           ))}
         </div>
       </div>

@@ -1,32 +1,51 @@
 import os
 from typing import Dict, Any, Optional
-import numpy as np
 
-from ..ml.trainer import load_trained_models, MODEL_CACHE_PATH
-from ..ml.features import (
-    extract_company_candidates,
-    featurize_company_candidate,
-    extract_role_candidates,
-    featurize_role_candidate,
-)
+try:
+    import numpy as np
+    from ..ml.trainer import load_trained_models, MODEL_CACHE_PATH
+    from ..ml.features import (
+        extract_company_candidates,
+        featurize_company_candidate,
+        extract_role_candidates,
+        featurize_role_candidate,
+    )
+    HAS_ML_DEPS = True
+except Exception:
+    HAS_ML_DEPS = False
+    MODEL_CACHE_PATH = ""
+    def load_trained_models():
+        return {}
 
 _CACHED_BUNDLE: Optional[Dict[str, Any]] = None
 
 def get_bundle() -> Optional[Dict[str, Any]]:
     """Get or lazily load the cached model bundle."""
     global _CACHED_BUNDLE
-    if _CACHED_BUNDLE is None and os.path.exists(MODEL_CACHE_PATH):
+    if _CACHED_BUNDLE is None and HAS_ML_DEPS and MODEL_CACHE_PATH and os.path.exists(MODEL_CACHE_PATH):
         _CACHED_BUNDLE = load_trained_models()
     return _CACHED_BUNDLE
 
 def reload_models() -> bool:
     """Force reload the model bundle from disk."""
     global _CACHED_BUNDLE
-    _CACHED_BUNDLE = load_trained_models()
-    return bool(_CACHED_BUNDLE)
+    if not HAS_ML_DEPS:
+        return False
+    loaded = load_trained_models()
+    if loaded:
+        _CACHED_BUNDLE = loaded
+        return True
+    return False
 
 def get_model_status() -> Dict[str, Any]:
     """Return model status, training timestamp, and evaluation metrics."""
+    if not HAS_ML_DEPS:
+        return {
+            "is_trained": False,
+            "status": "Dependensi ML tidak terpasang di runtime",
+            "metrics": None
+        }
+
     bundle = get_bundle()
     if not bundle or "metadata" not in bundle:
         return {
@@ -46,6 +65,9 @@ def get_model_status() -> Dict[str, Any]:
 
 def predict_with_ml(text: str, filename: str = "") -> Dict[str, Any]:
     """Execute local ML inference on document text for job title, company, and portal."""
+    if not HAS_ML_DEPS or not text or len(text.strip()) < 10:
+        return {"ml_available": False}
+
     bundle = get_bundle()
     if not bundle or "portal_pipeline" not in bundle:
         return {"ml_available": False}
@@ -75,7 +97,8 @@ def predict_with_ml(text: str, filename: str = "") -> Dict[str, Any]:
             cands = extract_company_candidates(text, filename)
             if cands:
                 feat_matrix = np.array([featurize_company_candidate(c, text, filename) for c in cands])
-                co_probs = company_ranker.predict_proba(feat_matrix)[:, 1]
+                probs = company_ranker.predict_proba(feat_matrix)
+                co_probs = probs[:, 1] if probs.shape[1] > 1 else probs[:, 0]
                 best_idx = int(np.argmax(co_probs))
                 result["company_name"] = cands[best_idx]
                 result["company_confidence"] = round(float(co_probs[best_idx]), 4)
@@ -86,7 +109,8 @@ def predict_with_ml(text: str, filename: str = "") -> Dict[str, Any]:
             role_cands = extract_role_candidates(text)
             if role_cands:
                 feat_matrix = np.array([featurize_role_candidate(c, text) for c in role_cands])
-                role_probs = role_ranker.predict_proba(feat_matrix)[:, 1]
+                probs = role_ranker.predict_proba(feat_matrix)
+                role_probs = probs[:, 1] if probs.shape[1] > 1 else probs[:, 0]
                 best_role_idx = int(np.argmax(role_probs))
                 result["job_title"] = role_cands[best_role_idx]
                 result["job_title_confidence"] = round(float(role_probs[best_role_idx]), 4)

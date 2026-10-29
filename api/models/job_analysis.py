@@ -11,11 +11,18 @@ class AnalyzeJobRequest(BaseModel):
     tone: Optional[str] = "profesional"  # "profesional", "antusias", "ringkas", "teknikal"
     language: Optional[str] = "id"  # "id" atau "en"
 
+class ScoreBreakdown(BaseModel):
+    tech_stack: float = 0.0      # C1: Core Tech Stack Alignment (Bobot 37%)
+    description: float = 0.0     # C2: Feature & Context Relevance (Bobot 28%)
+    role_domain: float = 0.0     # C3: Role & Architecture Alignment (Bobot 20%)
+    complexity: float = 0.0      # C4: Complexity & Quality Proof (Bobot 15%)
+
 class MatchedProject(BaseModel):
     project: ProjectItem
     match_score: int
     matched_skills: List[str]
     relevance_reason: str
+    score_breakdown: Optional[ScoreBreakdown] = None
 
 class GenerateCoverLetterRequest(BaseModel):
     applicant_name: Optional[str] = "Pelamar"

@@ -88,8 +88,7 @@ export const ApplicationModal: React.FC<ApplicationModalProps> = ({
         body: JSON.stringify({
           cover_letter: formData.coverLetter.trim(),
           company_name: formData.companyName.trim(),
-          job_title: formData.jobTitle.trim(),
-          source_portal: formData.notes?.includes('Jobstreet') ? 'Jobstreet' : 'Direct / Other',
+          source_portal: parsedResult?.source_portal || (formData.notes?.includes('Jobstreet') ? 'Jobstreet' : 'Direct / Other'),
           file_name: parsedResult?.sourceFileName || 'user_saved_form',
           salary_range: formData.salaryRange.trim() || undefined,
         }),

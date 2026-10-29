@@ -101,3 +101,35 @@ PORTALS = [
     ("Career Website", ["website resmi", "situs resmi", "career site"]),
     ("Direct / Email", ["email", "surel"])
 ]
+
+import os
+import json
+from typing import Any
+
+# Standard project-level paths independent of working directory
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+PARSED_APPLICATIONS_PATH = os.path.join(DATA_DIR, "parsed_applications.json")
+FEEDBACK_DATA_PATH = os.path.join(DATA_DIR, "training_feedback.json")
+LEARNING_LOG_PATH = os.path.join(DATA_DIR, "parser_learning_log.json")
+MODEL_CACHE_PATH = os.path.join(BASE_DIR, "api", "models_cache", "parser_models.joblib")
+
+def atomic_write_json(file_path: str, data: Any, indent: int = 2) -> None:
+    """Safely write JSON data to disk using temporary file and atomic replace."""
+    dir_name = os.path.dirname(os.path.abspath(file_path))
+    os.makedirs(dir_name, exist_ok=True)
+    temp_file = os.path.join(dir_name, f".tmp_{os.path.basename(file_path)}.{os.getpid()}")
+    try:
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=indent, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_file, file_path)
+    except Exception:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
+        raise
+

@@ -19,9 +19,12 @@ from .features import (
 )
 from .learning_log import get_valid_training_samples_from_log
 
-DEFAULT_DATA_PATH = "data/parsed_applications.json"
-FEEDBACK_DATA_PATH = "data/training_feedback.json"
-MODEL_CACHE_PATH = "api/models_cache/parser_models.joblib"
+try:
+    from ..config import PARSED_APPLICATIONS_PATH, FEEDBACK_DATA_PATH, MODEL_CACHE_PATH
+except ImportError:
+    from api.config import PARSED_APPLICATIONS_PATH, FEEDBACK_DATA_PATH, MODEL_CACHE_PATH
+
+DEFAULT_DATA_PATH = PARSED_APPLICATIONS_PATH
 
 def load_training_dataset(data_path: str = DEFAULT_DATA_PATH) -> List[Dict[str, Any]]:
     """Load primary applications dataset, user feedback, and parser learning logs."""
@@ -89,6 +92,10 @@ def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
             X_train_co.append(featurize_company_candidate(cand, text, fn))
             y_train_co.append(1 if (cand.lower().strip() in true_co or true_co in cand.lower().strip()) else 0)
 
+    if len(set(y_train_co)) < 2:
+        X_train_co.extend([[0.0] * 10, [1.0] * 10])
+        y_train_co.extend([0, 1])
+
     company_ranker = LogisticRegression(class_weight='balanced', max_iter=500, random_state=42)
     company_ranker.fit(np.array(X_train_co), np.array(y_train_co))
 
@@ -98,7 +105,9 @@ def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
         cands = extract_company_candidates(text, fn)
         if not cands: continue
         feat_matrix = np.array([featurize_company_candidate(c, text, fn) for c in cands])
-        best = cands[int(np.argmax(company_ranker.predict_proba(feat_matrix)[:, 1]))].lower()
+        co_probs = company_ranker.predict_proba(feat_matrix)
+        scores = co_probs[:, 1] if co_probs.shape[1] > 1 else co_probs[:, 0]
+        best = cands[int(np.argmax(scores))].lower()
         if best in true_co or true_co in best:
             co_correct += 1
     company_acc = float(co_correct / max(len(test_data), 1))
@@ -114,6 +123,10 @@ def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
             X_train_role.append(featurize_role_candidate(cand, text))
             y_train_role.append(1 if (cand.lower().strip() in true_role or true_role in cand.lower().strip()) else 0)
 
+    if len(set(y_train_role)) < 2:
+        X_train_role.extend([[0.0] * 7, [1.0] * 7])
+        y_train_role.extend([0, 1])
+
     role_ranker = LogisticRegression(class_weight='balanced', max_iter=500, random_state=42)
     role_ranker.fit(np.array(X_train_role), np.array(y_train_role))
 
@@ -123,7 +136,9 @@ def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
         cands = extract_role_candidates(text)
         if not cands: continue
         feat_matrix = np.array([featurize_role_candidate(c, text) for c in cands])
-        best = cands[int(np.argmax(role_ranker.predict_proba(feat_matrix)[:, 1]))].lower()
+        role_probs = role_ranker.predict_proba(feat_matrix)
+        scores = role_probs[:, 1] if role_probs.shape[1] > 1 else role_probs[:, 0]
+        best = cands[int(np.argmax(scores))].lower()
         if best in true_role or true_role in best:
             role_correct += 1
     role_acc = float(role_correct / max(len(test_data), 1))
@@ -149,7 +164,16 @@ def train_all_models(data_path: str = DEFAULT_DATA_PATH) -> Dict[str, Any]:
     }
 
     os.makedirs(os.path.dirname(MODEL_CACHE_PATH), exist_ok=True)
-    joblib.dump(bundle, MODEL_CACHE_PATH)
+    tmp_path = f"{MODEL_CACHE_PATH}.tmp.{os.getpid()}"
+    try:
+        joblib.dump(bundle, tmp_path)
+        os.replace(tmp_path, MODEL_CACHE_PATH)
+    finally:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
     return bundle["metadata"]
 
 def load_trained_models() -> Dict[str, Any]:
