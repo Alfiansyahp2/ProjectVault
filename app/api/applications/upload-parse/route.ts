@@ -8,16 +8,17 @@ export const dynamic = 'force-dynamic';
 
 const execPromise = util.promisify(exec);
 
+function getPythonBin(cwd: string) {
+  const venv = path.join(cwd, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+  return fs.existsSync(venv) ? `"${venv}"` : 'python';
+}
+
 // Helper to run python parse_pdf_document via standalone script
 async function parsePdfWithPython(filePath: string, cwd: string) {
   const normalizedPath = filePath.replace(/\\/g, '/');
   const scriptPath = path.join(cwd, 'api', 'parse_single.py').replace(/\\/g, '/');
-  const pythonCmd = `python "${scriptPath}" "${normalizedPath}"`;
-  
-  const { stdout, stderr } = await execPromise(pythonCmd, { cwd });
-  if (!stdout && stderr) {
-    throw new Error(stderr);
-  }
+  const { stdout, stderr } = await execPromise(`${getPythonBin(cwd)} "${scriptPath}" "${normalizedPath}"`, { cwd });
+  if (!stdout && stderr) throw new Error(stderr);
   return JSON.parse(stdout.trim());
 }
 
@@ -32,9 +33,7 @@ async function parseRawTextWithPython(text: string, cwd: string, hint: string = 
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.status === 'success' && data.result) {
-        return data.result;
-      }
+      if (data.status === 'success' && data.result) return data.result;
     }
   } catch {
     // Fallback if FastAPI server is not responding directly
@@ -45,7 +44,10 @@ async function parseRawTextWithPython(text: string, cwd: string, hint: string = 
   const tempTxt = path.join(uploadDir, `tmp_${Date.now()}.txt`);
   fs.writeFileSync(tempTxt, text, 'utf-8');
   try {
-    const pythonCmd = `python -c "import sys, json; from api.services.nlp_engine import parse_raw_text; f=open(r'${tempTxt.replace(/\\/g, '/')}', encoding='utf-8'); print(json.dumps(parse_raw_text(f.read(), '${hint}'), ensure_ascii=False))"`;
+    const scriptPath = path.join(cwd, 'api', 'parse_single.py').replace(/\\/g, '/');
+    const safeTxt = tempTxt.replace(/\\/g, '/');
+    const safeHint = hint.replace(/"/g, '\\"');
+    const pythonCmd = `${getPythonBin(cwd)} "${scriptPath}" --file-text "${safeTxt}" "${safeHint}"`;
     const { stdout, stderr } = await execPromise(pythonCmd, { cwd });
     if (!stdout && stderr) throw new Error(stderr);
     return JSON.parse(stdout.trim());

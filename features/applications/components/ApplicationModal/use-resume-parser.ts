@@ -173,8 +173,10 @@ export function useResumeParser(
       setOcrProgress(90);
       setOcrStatus('Menganalisis entitas teks dengan NLP Engine...');
 
-      const fileName = customName || ('name' in fileOrBlob ? (fileOrBlob as File).name : 'Tangkapan Layar');
-      await handleRawTextParse(extractedText, `Gambar: ${fileName}`);
+      const rawName = customName || ('name' in fileOrBlob ? (fileOrBlob as File).name : 'Tangkapan Layar');
+      const isScreenshot = /screencapture|screenshot|capture|image|img_|responsepage|\.aspx/i.test(rawName);
+      const hint = isScreenshot ? 'Tangkapan Layar Lowongan' : `Gambar: ${rawName}`;
+      await handleRawTextParse(extractedText, hint);
     } catch (err: any) {
       setParseErrorMsg(err.message || 'Gagal melakukan OCR pada gambar');
       setIsParsing(false);
